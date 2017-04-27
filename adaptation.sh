@@ -78,9 +78,14 @@ BME=$SCRATCH/BME/
 FASTQC=$SCRATCH/fastqc/
 RESULT=$SCRATCH/results/
 
+
+
 # construct the required directories if they are not present
 mkdir -p $SAMS $BEDS/coverage $BME $FASTQC ${SCRATCH}/BME_BED/coverage/ ${SCRATCH}/BME_bedgraph/ $SCRATCH/fastq_trimmed/ $RESULT
 
+# cut the amplicon file (in case it has OT/OB info in the fourth column)
+awk '{print $1 "\t" $2 "\t" $3}' $AMPLICON > $RESULT/AmpliconLocation.BED
+CUT_AMP=$RESULT/AmpliconLocation.BED
 
 
 ### I: SAM FILE GENERATION
@@ -119,7 +124,7 @@ find $SAMS -name *bed -print0 | xargs -r0 mv -t $BEDS
 
 # get the coverage per amplicon for the given intervals.
 for bed in `find $BEDS -name *bed | xargs`; do
-    bedtools coverage -a $AMPLICON -b $bed > ${bed}_coverage.txt
+    bedtools coverage -a $CUT_AMP -b $bed > ${bed}_coverage.txt
     mv ${bed}_coverage.txt $BEDS/coverage/
 done
 
@@ -137,7 +142,7 @@ find $BME -name "CpG*BED" -print0 | xargs -r0 mv -t ${SCRATCH}/BME_BED
 
 # get the coverage for methylated CpG 
 for bed in `find ${SCRATCH}/BME_BED -name CpG*BED | xargs`; do
-    bedtools coverage -a $AMPLICON -b $bed > ${bed}_coverage.txt
+    bedtools coverage -a $CUT_AMP -b $bed > ${bed}_coverage.txt
     mv ${bed}_coverage.txt ${SCRATCH}/BME_BED/coverage/
 done
 
