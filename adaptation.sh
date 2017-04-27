@@ -9,7 +9,6 @@
 # TODO: automate the chromosome position conversion to hg19 -> hg38 and negative strand to positive (pos +1)
 
 
-
 ## HELP PAGE
 if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
     echo -e "usage:\t[-h] [-f DIR] [-d DIR] [-r DIR] [-a FILE] [-c FILE] [-o DIR]\n"
@@ -77,8 +76,6 @@ BEDS=$SCRATCH/BED_files/
 BME=$SCRATCH/BME/
 FASTQC=$SCRATCH/fastqc/
 RESULT=$SCRATCH/results/
-
-
 
 # construct the required directories if they are not present
 mkdir -p $SAMS $BEDS/coverage $BME $FASTQC ${SCRATCH}/BME_BED/coverage/ ${SCRATCH}/BME_bedgraph/ $SCRATCH/fastq_trimmed/ $RESULT
@@ -149,7 +146,7 @@ done
 # DavidParry.pl and AmpliconLocationDP.BED
 perl -w $SCRIPTS/DavidParry.pl $AMPLICON ${SCRATCH}/BME_BED/coverage/ > $RESULT/CpG_meth_coverage_amplicon.tsv
 
-## IV: CpG METHYLATION PER SITE
+### IV: CpG METHYLATION PER SITE
 
 # bismark2bedgraph needed to produce the coverage files along with the bedgraph files
 for sam in $SAM_LIST; do

@@ -51,7 +51,7 @@ while (my $dir = shift){
     opendir(my $DIR, $dir) or die "Could not read directory $dir: $!\n";
     while (my $f = readdir($DIR)){
       #if ($f =~ /CpG_(O[TB])_(.+)\..*_bismark_pe\.txt_bismark_CpG_(meth|unmeth)\.BED_output\.txt/){
-        if ($f =~ /CpG_(O[TB])_(.+)\..*_bismark.*pe\.txt_bismark_CpG_(meth|unmeth)\.BED/){
+      if ($f =~ /CpG_(O[TB])_(.+)\..*_CpG_(meth|unmeth).*_coverage\.txt/){
             my $strand = $1;
             my $sample = $2;
             my $meth   = $3;
