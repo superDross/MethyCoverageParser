@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # define job name, email and working dir
-#$ -N Test2.BS_Seq_Analysis_Test
+#$ -N FuncTest.BS_Seq_Analysis_Test
 #$ -M dross11@staffmail.ed.ac.uk
 #$ -wd /exports/eddie/scratch/dross11/
 
