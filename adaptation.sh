@@ -4,7 +4,15 @@
 # TODO: increase readability of python files
 # TODO: automate the chromosome position conversion to hg19 -> hg38 and negative strand to positive (pos +1)
 
-# FASTQ, HUMAN GENOME, AMPLICONBED and CpG_SITES have to be copied over to scratch first
+### NOTES ###############################################
+# 1. FASTQ, HUMAN GENOME, AMPLICONBED and CpG_SITES have to be copied over to scratch first
+# 2. Samples names are assumed to be in the second "_" deliminition of the fastq filename and 
+#    and read 1 & 2 are identified by _R1_ or _R2_ in the fastq filename . If this is not the case
+#    then this script will likely explode e.g. 
+#	1079TA009L01_SampleName_001_R1_001.fastq
+#    THIS WILL LIKELY BE A PROBLEM AS EG DO IT DIFFERENTLY
+#########################################################
+
 
 ### HELP PAGE ###########################################
 if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
@@ -93,7 +101,6 @@ SAM_LIST=`find $FASTQ_DIR/ -name *gz | awk -F "/" '{print $NF}' | awk -F "_" '{p
 ##########################################################
 
 
-
 ### FUNCTIONS ############################################
 
 ##############################################
@@ -109,12 +116,13 @@ SAM_LIST=`find $FASTQ_DIR/ -name *gz | awk -F "/" '{print $NF}' | awk -F "_" '{p
 #   SAMS = dir containing SAM files
 #
 # Returns:
-#  SAM files
+#   SAM files
+#
 ##############################################
 
 generate_SAMS() {
     # Quality and adpater trimming of all fastqs. CS1rc and CS2rc need to be trimmed off, this explains the high C % per base sequence count at the end of the read.
-    FASTQS=`find $FASTQ_DIR/*/* -name '*.fastq.gz'`
+    FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.qz\|fq\|fastq\)$'`
     echo $FASTQS | xargs -n2 trim_galore --paired \
     				     --path_to_cutadapt /exports/eddie3_homes_local/dross11/.local/bin/cutadapt \
     				     --output_dir $SCRATCH/fastq_trimmed/ \
@@ -125,8 +133,8 @@ generate_SAMS() {
     fastqc $SCRATCH/fastq_trimmed/*val*gz -o $FASTQC
     
     # generate list of post-trimmed Read 1 and Read 2 fastq files (not sure if adding the comma is neccessary.
-    R1=`find $SCRATCH/fastq_trimmed/ -name *_R1_*val*fq.gz | sort | xargs | sed 's/ /,/g'`
-    R2=`find $SCRATCH/fastq_trimmed/ -name *_R2_*val*fq.gz | sort | xargs | sed 's/ /,/g'`
+    R1=`find $SCRATCH/fastq_trimmed/ -iregex '.*\(_R1_\|_1.\).*val.*fq.gz'  | sort | xargs | sed 's/ /,/g'`
+    R2=`find $SCRATCH/fastq_trimmed/ -iregex '.*\(_R2_\|_2.\).*val.*fq.gz'  | sort | xargs | sed 's/ /,/g'`
     
     # Align to BS-converted genome and convert bam to sam files. Bowtie2 for >50bp reads.
     bismark --bowtie2 -1 $R1 -2 $R2 --sam -o $SAMS/ $REF 
