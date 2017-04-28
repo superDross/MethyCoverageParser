@@ -1,13 +1,10 @@
 #!/bin/bash
 
-# TODO: script something which copies over FASTQ, REF, AMPLICON_BED and CPG over to scratch
-# TODO: script something which copies all the data over to OUT
-# TODO: place all bisulphite stages into functions
-# TODO: figure out a way to add option --no-amplicon-methylation, --bs-genome and --version
 # TODO: rename py, pl files to a more logical name
 # TODO: increase readability of python files
 # TODO: automate the chromosome position conversion to hg19 -> hg38 and negative strand to positive (pos +1)
 
+# FASTQ, HUMAN GENOME, AMPLICONBED and CpG_SITES have to be copied over to scratch first
 
 ### HELP PAGE ###########################################
 if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
@@ -15,11 +12,21 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
     echo -e "Calculate the total CpG coverage, mean CpG coverage per amplicon & CpG coverage per given CpG site from a given set of FASTQ files\n"
     echo -e "required arguments:"
     echo -e "-f, --fastq\tpath containing dirs with fastq files"
-    echo -e "-d, --dir\tdirectory to perform commands (SCRATCH)"
+    echo -e "-d, --dir\tdirectory in which data generation will take place (SCRATCH)"
     echo -e "-r, --ref\tdirectory containing BS-converted genome"
     echo -e "-a, --amplicon\tBED file containing amplicon start and end coordinates"
     echo -e "-c, --cpg\tfile containing CpG sites of interest"    
     echo -e "-o, --out\tdirectory to output all the results"
+    echo -e "options:"
+    echo -e "--bs-convert\t BS-convert the given reference genome"
+    exit 0
+fi
+#########################################################
+
+
+### VERSION #############################################
+if [ "$1" = "-v" ] || [ "$1" = "--version" ] ; then
+    echo "version 0.01"
     exit 0
 fi
 #########################################################
@@ -36,6 +43,7 @@ while [[ $# -gt 0 ]]; do
       -o|--out) OUT="$2"; shift ;;
       -a|--amplicon) AMPLICON="$2"; shift ;;
       -c|--cpg) CPG="$2"; shift ;;
+      --bs-convert) BS_CONVERT="YES" ;;
       *) echo "Unknown argument:\t$arg"; exit 0 ;;
     esac
 
@@ -66,7 +74,7 @@ fi
 
 
 ### PATHS ###############################################
-SCRIPTS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/ # the absolute path of the dir in which this script is within
+SCRIPTS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/scripts/ # the absolute path of the dir in which this script is within
 SAMS=$SCRATCH/alignment/sams/
 BEDS=$SCRATCH/BED_files/
 BME=$SCRATCH/BME/
@@ -144,6 +152,7 @@ generate_SAMS() {
 #   coverage for each sample (columns) across
 #   each amplicon region (rows).
 ##############################################
+
 CpG_meth_cov_total() {
     # determines which read pairs contain a methylated CpG and parse the read start and end positions into a BED file
     find $SAMS -name *sam | xargs -I {} python2 $SCRIPTS/Duncan.py {} {}.bed
@@ -237,15 +246,19 @@ CpG_meth_cov_site() {
     done 
     
     ## CpG_sites.csv contains CpG sites which are found to be highly differntailly methylated between tumour and leukocytes
-    python3 $SCRIPTS/Sophie.py ${SCRATCH}/BME_bedgraph/ $CPG $RESULT/CpG_meth_coverage_site.tsv
+    python3 $SCRIPTS/Sophie.py -b ${SCRATCH}/BME_bedgraph/ -p $CPG -o $RESULT/CpG_meth_coverage_site.tsv
 }
 
 ##########################################################
 
 
+### EXECUTION ############################################
 
-# BS_convert the Genome ONLY HAS TO BE PERFORMED ONCE
-# bismark_genome_preparation --bowtie2 $REF 
+# BS-convert the genome if the $BS_CONVERT variable is not empty
+if [ ! -z $BS_CONVERT ]; then
+    # BS conversion ONLY HAS TO BE PERFORMED ONCE PER GENOME
+    bismark_genome_preparation --bowtie2 $REF 
+fi
 
 generate_SAMS
 
@@ -255,5 +268,4 @@ CpG_meth_cov_amplicon
 
 CpG_meth_cov_site
 
-# copy over
-#rsync -r $SCRATCH $OUT
+##########################################################
