@@ -93,67 +93,67 @@ SAM_LIST=`find $FASTQ_DIR/ -name *gz | awk -F "/" '{print $NF}' | awk -F "_" '{p
 # BS_convert the Genome ONLY HAS TO BE PERFORMED ONCE
 # bismark_genome_preparation --bowtie2 $REF 
 
-# Quality and adpater trimming of all fastqs. CS1rc and CS2rc need to be trimmed off, this explains the high C % per base sequence count at the end of the read.
-FASTQS=`find $FASTQ_DIR/*/* -name '*.fastq.gz'`
-echo $FASTQS | xargs -n2 trim_galore --paired \
-				     --path_to_cutadapt /exports/eddie3_homes_local/dross11/.local/bin/cutadapt \
-				     --output_dir $SCRATCH/fastq_trimmed/ \
-				     --adapter AGACCAAGTCTCTGCTACCGTA \
-				     --adapter2 TGTAGAACCATGTCGTCAGTGT \
-				     --trim1 
-
-# generate fastqc reports
-fastqc $SCRATCH/fastq_trimmed/*val*gz -o $FASTQC
-
-# generate list of post-trimmed Read 1 and Read 2 fastq files (not sure if adding the comma is neccessary.
-R1=`find $SCRATCH/fastq_trimmed/ -name *_R1_*val*fq.gz | sort | xargs | sed 's/ /,/g'`
-R2=`find $SCRATCH/fastq_trimmed/ -name *_R2_*val*fq.gz | sort | xargs | sed 's/ /,/g'`
-
-# Align to BS-converted genome and convert bam to sam files. Bowtie2 for >50bp reads.
-bismark --bowtie2 -1 $R1 -2 $R2 --sam -o $SAMS/ $REF 
-
-
-### II: CpG METHYLATION COVERAGE
-
-# determines which read pairs contain a methylated CpG and parse the read start and end positions into a BED file
-find $SAMS -name *sam | xargs -I {} python2 $SCRIPTS/Duncan.py {} {}.bed
-find $SAMS -name *bed -print0 | xargs -r0 mv -t $BEDS
-
-# get the coverage per amplicon for the given intervals.
-for bed in `find $BEDS -name *bed | xargs`; do
-    bedtools coverage -a $CUT_AMP -b $bed > ${bed}_coverage.txt
-    mv ${bed}_coverage.txt $BEDS/coverage/
-done
-
-# give the dir containing the coverage text files
-python $SCRIPTS/CoverageParse.py $BEDS/coverage/ $RESULT/CpG_coverage.tsv
-
-### III: CpG METHYLATION PER AMPLICON
-
-# extract the methylation call for every C and write out its position and % methylated at said position. Report will allow you to work out methylation % in CpG, CHG & CHG contexts.
-bismark_methylation_extractor -p -o $BME/ `find $SAMS -name *sam | xargs`
-
-# Duncans perl script takes BME results and creates 2 BED files; one for meth CpG and another for unmeth CpG sites
-find $BME -name "CpG*txt" | xargs -I {} perl -w $SCRIPTS/Duncan.pl {} 
-find $BME -name "CpG*BED" -print0 | xargs -r0 mv -t ${SCRATCH}/BME_BED
-
-# get the coverage for methylated CpG 
-for bed in `find ${SCRATCH}/BME_BED -name CpG*BED | xargs`; do
-    bedtools coverage -a $CUT_AMP -b $bed > ${bed}_coverage.txt
-    mv ${bed}_coverage.txt ${SCRATCH}/BME_BED/coverage/
-done
-
-# DavidParry.pl and AmpliconLocationDP.BED
-perl -w $SCRIPTS/DavidParry.pl $AMPLICON ${SCRATCH}/BME_BED/coverage/ > $RESULT/CpG_meth_coverage_amplicon.tsv
-
-### IV: CpG METHYLATION PER SITE
-
-# bismark2bedgraph needed to produce the coverage files along with the bedgraph files
-for sam in $SAM_LIST; do
-    cpg_pairs=`find $BME -name "CpG*_${sam}_*txt" | xargs`
-    bismark2bedGraph $cpg_pairs --dir ${SCRATCH}/BME_bedgraph -o ${sam}.bedGraph
-    gunzip ${SCRATCH}/BME_bedgraph/*.gz
-done 
+## Quality and adpater trimming of all fastqs. CS1rc and CS2rc need to be trimmed off, this explains the high C % per base sequence count at the end of the read.
+#FASTQS=`find $FASTQ_DIR/*/* -name '*.fastq.gz'`
+#echo $FASTQS | xargs -n2 trim_galore --paired \
+#				     --path_to_cutadapt /exports/eddie3_homes_local/dross11/.local/bin/cutadapt \
+#				     --output_dir $SCRATCH/fastq_trimmed/ \
+#				     --adapter AGACCAAGTCTCTGCTACCGTA \
+#				     --adapter2 TGTAGAACCATGTCGTCAGTGT \
+#				     --trim1 
+#
+## generate fastqc reports
+#fastqc $SCRATCH/fastq_trimmed/*val*gz -o $FASTQC
+#
+## generate list of post-trimmed Read 1 and Read 2 fastq files (not sure if adding the comma is neccessary.
+#R1=`find $SCRATCH/fastq_trimmed/ -name *_R1_*val*fq.gz | sort | xargs | sed 's/ /,/g'`
+#R2=`find $SCRATCH/fastq_trimmed/ -name *_R2_*val*fq.gz | sort | xargs | sed 's/ /,/g'`
+#
+## Align to BS-converted genome and convert bam to sam files. Bowtie2 for >50bp reads.
+#bismark --bowtie2 -1 $R1 -2 $R2 --sam -o $SAMS/ $REF 
+#
+#
+#### II: CpG METHYLATION COVERAGE
+#
+## determines which read pairs contain a methylated CpG and parse the read start and end positions into a BED file
+#find $SAMS -name *sam | xargs -I {} python2 $SCRIPTS/Duncan.py {} {}.bed
+#find $SAMS -name *bed -print0 | xargs -r0 mv -t $BEDS
+#
+## get the coverage per amplicon for the given intervals.
+#for bed in `find $BEDS -name *bed | xargs`; do
+#    bedtools coverage -a $CUT_AMP -b $bed > ${bed}_coverage.txt
+#    mv ${bed}_coverage.txt $BEDS/coverage/
+#done
+#
+## give the dir containing the coverage text files
+#python $SCRIPTS/CoverageParse.py $BEDS/coverage/ $RESULT/CpG_coverage.tsv
+#
+#### III: CpG METHYLATION PER AMPLICON
+#
+## extract the methylation call for every C and write out its position and % methylated at said position. Report will allow you to work out methylation % in CpG, CHG & CHG contexts.
+#bismark_methylation_extractor -p -o $BME/ `find $SAMS -name *sam | xargs`
+#
+## Duncans perl script takes BME results and creates 2 BED files; one for meth CpG and another for unmeth CpG sites
+#find $BME -name "CpG*txt" | xargs -I {} perl -w $SCRIPTS/Duncan.pl {} 
+#find $BME -name "CpG*BED" -print0 | xargs -r0 mv -t ${SCRATCH}/BME_BED
+#
+## get the coverage for methylated CpG 
+#for bed in `find ${SCRATCH}/BME_BED -name CpG*BED | xargs`; do
+#    bedtools coverage -a $CUT_AMP -b $bed > ${bed}_coverage.txt
+#    mv ${bed}_coverage.txt ${SCRATCH}/BME_BED/coverage/
+#done
+#
+## DavidParry.pl and AmpliconLocationDP.BED
+#perl -w $SCRIPTS/DavidParry.pl $AMPLICON ${SCRATCH}/BME_BED/coverage/ > $RESULT/CpG_meth_coverage_amplicon.tsv
+#
+#### IV: CpG METHYLATION PER SITE
+#
+## bismark2bedgraph needed to produce the coverage files along with the bedgraph files
+#for sam in $SAM_LIST; do
+#    cpg_pairs=`find $BME -name "CpG*_${sam}_*txt" | xargs`
+#    bismark2bedGraph $cpg_pairs --dir ${SCRATCH}/BME_bedgraph -o ${sam}.bedGraph
+#    gunzip ${SCRATCH}/BME_bedgraph/*.gz
+#done 
 
 ## CpG_sites.csv contains CpG sites which are found to be highly differntailly methylated between tumour and leukocytes
 python3 $SCRIPTS/Sophie.py ${SCRATCH}/BME_bedgraph/ $CPG $RESULT/CpG_meth_coverage_site.tsv

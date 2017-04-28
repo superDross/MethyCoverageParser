@@ -28,7 +28,8 @@ dannydict = {}
 minCov = 1000
 
 #read only files into a list
-onlyfiles = [f for f in listdir(bedfilesdirectory) if isfile(join(bedfilesdirectory, f))]
+onlyfiles = [f for f in listdir(bedfilesdirectory) 
+		if isfile(join(bedfilesdirectory, f)) and f.endswith('cov')]
 #Loop over a directory that contains the bedfiles
 for bedfile in onlyfiles:
 	if re.search(r".cov", bedfile):
@@ -37,6 +38,7 @@ for bedfile in onlyfiles:
 		#Open file and save it in a variable
 		bedfile = join(bedfilesdirectory, bedfile)
 		bedfileopen = open(bedfile, "r")
+		print(bedfile)
 		#make a variable name from the filename, this variable name will be used as the sub-dictionary key
 		for line in bedfileopen:
 			if not line.startswith("track type"):
