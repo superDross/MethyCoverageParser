@@ -3,6 +3,7 @@
 Created by Sophie Marion De Proce and Danny Laurent
 Edited by David R: cli interface, docstring and renamed variables 	
 '''
+# TODO: sam name is assumed to be in the second deliminition of "_" in the coverage file. This will be problematic when a different nameing convention is found in these files.
 import argparse
 from os import listdir
 from os.path import isfile, join

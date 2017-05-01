@@ -31,5 +31,4 @@ $HOME/MethyCoverageParser/MethyCoverageParser.sh \
 	--ref $SCRATCH/human/hg38-1000G/ \
 	--amplicon $SCRATCH/FluidigmAmplicons/AmpliconDaveParry.BED \
 	--cpg $SCRATCH/FluidigmAmplicons/CpG_locations_hg38_strand_converted.txt \
-	--out $DATASTORE/FionaFluidigmData/TestScript/
 

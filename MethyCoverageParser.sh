@@ -1,8 +1,9 @@
 #!/bin/bash
-version="0.01"
 # created by David R
+version="0.01"
 
-# TODO: --out is not needed
+# TODO: fix the sample name FASTQ issue described below
+# TODO: options to stop functions from being carried out
 
 ### NOTES ###############################################
 # 1. FASTQ, HUMAN GENOME, AMPLICONBED and CpG_SITES have to be copied over to scratch first
@@ -17,16 +18,13 @@ version="0.01"
 ### HELP PAGE ###########################################
 if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
     echo -e "usage:\t[-h] [-f DIR] [-d DIR] [-r DIR] [-a FILE] [-c FILE] [-o DIR] [-s STRING]\n"
-    echo -e "Calculate the total CpG coverage, mean CpG coverage per amplicon & CpG coverage per given CpG site from a given set of FASTQ files\n"
+    echo -e "Calculate the total coverage, CpG coverage & CpG coverage per given CpG site from \na given set of FASTQ files over a set of given amplicons\n"
     echo -e "required arguments:"
     echo -e "-f, --fastq\tpath containing dirs with fastq files"
     echo -e "-d, --dir\tdirectory in which data generation will take place (SCRATCH)"
     echo -e "-r, --ref\tdirectory containing BS-converted genome"
     echo -e "-a, --amplicon\tBED file containing amplicon start and end coordinates"
-    echo -e "-c, --cpg\tfile containing CpG sites of interest"    
-    echo -e "-o, --out\tdirectory to output all the results"
-    echo -e "optional arguments:"
-    echo -e "-s, --samples\tlist of sample names"
+    echo -e "-c, --cpg\tfile containing CpG sites of interest in BED like format"    
     echo -e "options:"
     echo -e "--bs-convert\t BS-convert the given reference genome"
     exit 0
@@ -50,12 +48,10 @@ while [[ $# -gt 0 ]]; do
       -f|--fastq) FASTQ_DIR="$2"; shift ;;
       -d|--dir) SCRATCH="$2"; shift ;;
       -r|--ref) REF="$2"; shift ;;
-      -o|--out) OUT="$2"; shift ;;
       -a|--amplicon) AMPLICON="$2"; shift ;;
       -c|--cpg) CPG="$2"; shift ;;
-      -s|--samples) SAM_LIST="$2"; shift ;; 
       --bs-convert) BS_CONVERT="YES" ;;
-      *) echo "Unknown argument:\t$arg"; exit 0 ;;
+      *) echo -e "Unknown argument:\t$arg"; exit 0 ;;
     esac
 
     shift
@@ -71,9 +67,6 @@ elif [ -z $SCRATCH ]; then
 elif [ -z $REF ]; then
     echo "--ref argument is required"
     exit 1 
-elif [ -z $OUT ]; then
-    echo "--out argument is required"
-    exit 1 
 elif [ -z $AMPLICON ]; then
     echo "--amplicon argument is required"
     exit 1 
@@ -82,10 +75,6 @@ elif [ -z $CPG ]; then
     exit 1 
 fi
 
-# get sample names from the second deliminition of _ from the fastq filenames, if --sample arg not given
-if [ -z $SAM_LIST ]; then
-    SAM_LIST=`find $FASTQ_DIR/ -name *gz | awk -F "/" '{print $NF}' | awk -F "_" '{print $2}' | uniq | xargs`
-fi 
 
 #########################################################
 
@@ -114,7 +103,10 @@ CUT_AMP=$RESULT/AmpliconLocation.BED
 # generate_SAMS()
 #
 # Trim the CS1rc and CS2rc adapters from the 
-# FASTQ files, generate fastqc and SAM files
+# FASTQ files, generate fastqc and SAM files.
+# Extract methylation calls in all 3 contexts
+# (CpG, CHG & CHG) and output their positions
+# and methy % into seperate context files.
 #
 # Globals:
 #   FASTQ_DIR = dir containing subdirs with fastq pairs.
@@ -147,6 +139,9 @@ generate_SAMS() {
     
     # Align to BS-converted genome and convert bam to sam files. Bowtie2 for >50bp reads.
     bismark --bowtie2 -1 $R1 -2 $R2 --sam -o $SAMS/ $REF 
+
+    # extract the methylation call for every C and write out its position and % methylated at said position. Report will allow you to work out methylation % in CpG, CHG & CHG contexts.
+    bismark_methylation_extractor -p -o $BME/ `find $SAMS -name *sam | xargs`
 }
 
 
@@ -181,7 +176,7 @@ Coverage() {
     done
     
     # give the dir containing the coverage text files
-    python $SCRIPTS/reshapers/CpG_coverage_parser.py -d $BEDS/coverage/ -o $RESULT/Coverage.tsv
+    python $SCRIPTS/reshapers/CoverageParser.py -d $BEDS/coverage/ -o $RESULT/Coverage.tsv
 }
 
 
@@ -214,9 +209,6 @@ Coverage() {
 ##############################################
 
 CpG_divided_cov() {
-    # extract the methylation call for every C and write out its position and % methylated at said position. Report will allow you to work out methylation % in CpG, CHG & CHG contexts.
-    bismark_methylation_extractor -p -o $BME/ `find $SAMS -name *sam | xargs`
-    
     # Duncans perl script takes BME results and creates 2 BED files; one for meth CpG and another for unmeth CpG sites
     find $BME -name "CpG*txt" | xargs -I {} perl -w $SCRIPTS/sam_parsers/MethUnmethCpGs2Bed.pl {} 
     find $BME -name "CpG*BED" -print0 | xargs -r0 mv -t ${SCRATCH}/BME_BED
