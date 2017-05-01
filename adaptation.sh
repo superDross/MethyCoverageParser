@@ -1,4 +1,5 @@
 #!/bin/bash
+version="0.01"
 
 # TODO: rename py, pl files to a more logical name
 # TODO: increase readability of python files
@@ -6,7 +7,7 @@
 
 ### NOTES ###############################################
 # 1. FASTQ, HUMAN GENOME, AMPLICONBED and CpG_SITES have to be copied over to scratch first
-# 2. Samples names are assumed to be in the second "_" deliminition of the fastq filename and 
+# 2. Samples names/id are assumed to be in the second "_" deliminition of the fastq filename and 
 #    and read 1 & 2 are identified by _R1_ or _R2_ in the fastq filename . If this is not the case
 #    then this script will likely explode e.g. 
 #	1079TA009L01_SampleName_001_R1_001.fastq
@@ -25,6 +26,8 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
     echo -e "-a, --amplicon\tBED file containing amplicon start and end coordinates"
     echo -e "-c, --cpg\tfile containing CpG sites of interest"    
     echo -e "-o, --out\tdirectory to output all the results"
+    echo -e "optional arguments:"
+    echo -e "-s, --samples\tlist of sample names"
     echo -e "options:"
     echo -e "--bs-convert\t BS-convert the given reference genome"
     exit 0
@@ -34,7 +37,7 @@ fi
 
 ### VERSION #############################################
 if [ "$1" = "-v" ] || [ "$1" = "--version" ] ; then
-    echo "version 0.01"
+    echo "version $version"
     exit 0
 fi
 #########################################################
@@ -51,6 +54,7 @@ while [[ $# -gt 0 ]]; do
       -o|--out) OUT="$2"; shift ;;
       -a|--amplicon) AMPLICON="$2"; shift ;;
       -c|--cpg) CPG="$2"; shift ;;
+      -s|--samples) SAM_LIST="$2"; shift ;; 
       --bs-convert) BS_CONVERT="YES" ;;
       *) echo "Unknown argument:\t$arg"; exit 0 ;;
     esac
@@ -78,6 +82,12 @@ elif [ -z $CPG ]; then
     echo "--cpg argument is required"
     exit 1 
 fi
+
+# get sample names from the second deliminition of _ from the fastq filenames, if --sample arg not specified
+if [ -z $SAM_LIST ]; then
+    SAM_LIST=`find $FASTQ_DIR/ -name *gz | awk -F "/" '{print $NF}' | awk -F "_" '{print $2}' | uniq | xargs`
+fi 
+
 #########################################################
 
 
@@ -96,8 +106,6 @@ mkdir -p $SAMS $BEDS/coverage $BME $FASTQC ${SCRATCH}/BME_BED/coverage/ ${SCRATC
 awk '{print $1 "\t" $2 "\t" $3}' $AMPLICON > $RESULT/AmpliconLocation.BED
 CUT_AMP=$RESULT/AmpliconLocation.BED
 
-# get sample names from fastq filenames
-SAM_LIST=`find $FASTQ_DIR/ -name *gz | awk -F "/" '{print $NF}' | awk -F "_" '{print $2}' | uniq | xargs`
 ##########################################################
 
 
@@ -123,6 +131,8 @@ SAM_LIST=`find $FASTQ_DIR/ -name *gz | awk -F "/" '{print $NF}' | awk -F "_" '{p
 generate_SAMS() {
     # Quality and adpater trimming of all fastqs. CS1rc and CS2rc need to be trimmed off, this explains the high C % per base sequence count at the end of the read.
     FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.qz\|fq\|fastq\)$'`
+
+    # -n2 works under the assumption that the FATSQS are sorted in read pairs
     echo $FASTQS | xargs -n2 trim_galore --paired \
     				     --path_to_cutadapt /exports/eddie3_homes_local/dross11/.local/bin/cutadapt \
     				     --output_dir $SCRATCH/fastq_trimmed/ \
@@ -166,7 +176,7 @@ CpG_meth_cov_total() {
     find $SAMS -name *sam | xargs -I {} python2 $SCRIPTS/Duncan.py {} {}.bed
     find $SAMS -name *bed -print0 | xargs -r0 mv -t $BEDS
     
-    # get the coverage per amplicon for the given intervals.
+    # get the CpG coverage per amplicon for the given intervals.
     for bed in `find $BEDS -name *bed | xargs`; do
         bedtools coverage -a $CUT_AMP -b $bed > ${bed}_coverage.txt
         mv ${bed}_coverage.txt $BEDS/coverage/
@@ -186,7 +196,6 @@ CpG_meth_cov_total() {
 # Globals:
 #   BME = dir to contain meth calls for every CpG CpH and CHH sites
 #   SAMS = dir containing SAM files
-#   BEDS = dir containing to be generated BED files
 #   SCRIPTS = dir containing all scripts
 #   RESULT = dir to place returned file
 #   SCRATCH = dir used to generate files
