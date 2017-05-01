@@ -1,7 +1,7 @@
 # MethyCoverageParser
 Produces coverage and methylation % data from FASTQ files derived from bisulfite converted targeted-sequencing.
 
-Pipeline created by Danny Laurent and Duncan Sproul.
+Pipeline created by Danny Laurent and Duncan Sproul. <br />
 CLI interface, documentation, organisation and main bash script created by David Ross
 
 ## Installation
@@ -24,12 +24,12 @@ A command line tool which uses [Bismark](https://www.bioinformatics.babraham.ac.
         GB788    chr3     73837    -
 
 ## Requirements
-python
-perl
-TrimGalore
-bowtie2
-bismark
-FastQC
+python <br />
+perl <br />
+TrimGalore <br />
+bowtie2 <br />
+bismark <br />
+FastQC <br />
 bedtools
 
 ## Example Usage
