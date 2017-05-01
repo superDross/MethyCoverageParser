@@ -25,7 +25,7 @@ DATASTORE=/exports/igmm/datastore/aitman-lab/dross11/
 SCRATCH=/exports/eddie/scratch/dross11/
 HOME=/home/dross11/
 
-$HOME/scripts/MethyCoverageParser.sh \
+$HOME/MethyCoverageParser/MethyCoverageParser.sh \
 	--fastq $SCRATCH/fastq/ \
 	--dir $SCRATCH \
 	--ref $SCRATCH/human/hg38-1000G/ \
