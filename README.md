@@ -5,7 +5,9 @@ Pipeline created by Danny Laurent and Duncan Sproul.
 CLI interface, documentation, organisation and main bash script created by David Ross
 
 ## Installation
+```bash
 git clone https://github.com/superDross/MethyCoverageParser/
+```
 
 ## Description
 A command line tool which uses [Bismark](https://www.bioinformatics.babraham.ac.uk/projects/bismark/) and a selection of parsing scripts upon FASTQ files derived from bisulfite-converted targeted-sequencing to produce three files:
