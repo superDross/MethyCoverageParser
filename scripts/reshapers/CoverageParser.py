@@ -30,16 +30,14 @@ def coverage2dict(datadir):
 
         for filename in os.listdir(datadir):
             if filename.endswith("coverage.txt"):
-                sample = filename.split('_')[1]
                 fname = os.path.join(datadir, filename)
-                print(fname)
                 with open(fname) as fin:
                     for line in fin:
                         chrom, start, end, cov, n, length, fraction = line.strip().split("\t")
                         key = (chrom, start, end)
                         if key not in data:
                             data[key] = {}
-                        data[key][sample] = cov
+                        data[key][filename] = cov
         return data
 
 
@@ -59,7 +57,6 @@ def reformat_coverage(data, fout):
             if printheader:
                 fout.write('\t\t')
                 for sam in data[(chrom, start, end)]:
-                    print(sam)
                     fout.write('\t' + sam)
                 fout.write('\n')
                 printheader = False

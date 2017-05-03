@@ -25,6 +25,7 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
     echo -e "-r, --ref\tdirectory containing BS-converted genome"
     echo -e "-a, --amplicon\tBED file containing amplicon start and end coordinates"
     echo -e "-c, --cpg\tfile containing CpG sites of interest in BED like format"    
+    echo -e "-n, --number\tsplit the sample name to the n delimition of '_'"
     echo -e "options:"
     echo -e "--bs-convert\t BS-convert the given reference genome"
     exit 0
@@ -50,6 +51,7 @@ while [[ $# -gt 0 ]]; do
       -r|--ref) REF="$2"; shift ;;
       -a|--amplicon) AMPLICON="$2"; shift ;;
       -c|--cpg) CPG="$2"; shift ;;
+      -n|--number) N="$2"; shift ;;
       --bs-convert) BS_CONVERT="YES" ;;
       *) echo -e "Unknown argument:\t$arg"; exit 0 ;;
     esac
@@ -75,11 +77,15 @@ elif [ -z $CPG ]; then
     exit 1 
 fi
 
+# default the --number to 2 if a value is not given
+if [ -z $N ]; then
+    N=2
+fi
 
 #########################################################
 
 
-### PATHS ###############################################
+### GLOBAL VARIABLES #####################################
 SCRIPTS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/scripts/ # the absolute path of the dir in which this script is within
 SAMS=$SCRATCH/alignment/sams/
 BEDS=$SCRATCH/BED_files/
@@ -94,6 +100,9 @@ mkdir -p $SAMS $BEDS/coverage $BME $FASTQC ${SCRATCH}/BME_BED/coverage/ ${SCRATC
 awk '{print $1 "\t" $2 "\t" $3}' $AMPLICON > $RESULT/AmpliconLocation.BED
 CUT_AMP=$RESULT/AmpliconLocation.BED
 
+# create sam list
+# SAM_LIST=`find $FASTQ_DIR/ -name *gz | awk -F "/" '{print $NF}' | awk -F "_" '{print $2}' | uniq | xargs`
+SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.qz\|fq\|fastq\)$' | awk -F"/" '{print $NF}' | awk -F"." '{print $1}' | sort | xargs`
 ##########################################################
 
 
@@ -143,8 +152,6 @@ generate_SAMS() {
     # create a mapping efficiency summary file
     find $SAMS/ -name "*_report.txt" | xargs grep "Mapping efficiency" | sed 's/:/\t/g' | awk -F"/" '{print $NF}' > $SCRATCH/mapping_efficiency_summary.txt
 
-    # extract the methylation call for every C and write out its position and % methylated at said position. Report will allow you to work out methylation % in CpG, CHG & CHG contexts.
-    bismark_methylation_extractor -p -o $BME/ `find $SAMS -name *sam | xargs`
 }
 
 
@@ -179,7 +186,11 @@ Coverage() {
     done
     
     # give the dir containing the coverage text files
-    python $SCRIPTS/reshapers/CoverageParser.py -d $BEDS/coverage/ -o $RESULT/Coverage.tsv
+    python $SCRIPTS/reshapers/CoverageParser.py -d $BEDS/coverage/ -o $RESULT/pre_Coverage.tsv
+
+    # alter sample names in header to delimitions given
+    python $SCRIPTS/content_modifiers/change_header.py -i $RESULT/pre_Coverage.tsv -n $N -o $RESULT/Coverage.tsv
+    rm $RESULT/pre_Coverage.tsv
 }
 
 
@@ -223,9 +234,13 @@ CpG_divided_cov() {
     done
     
     # DavidParry.pl and AmpliconLocationDP.BED
-    perl -w $SCRIPTS/reshapers/DivededCoverageParser.pl $AMPLICON ${SCRATCH}/BME_BED/coverage/ > $RESULT/CpG_divided_coverage.tsv
-}
+    perl -w $SCRIPTS/reshapers/DivededCoverageParser.pl $AMPLICON ${SCRATCH}/BME_BED/coverage/ > $RESULT/pre_CpG_divided_coverage.tsv
 
+    # alter sample names in header to delimitions given
+    python $SCRIPTS/content_modifiers/change_header.py -i $RESULT/pre_CpG_divided_coverage.tsv -n $N -o $RESULT/CpG_divided_coverage.tsv
+    rm $RESULT/pre_CpG_divided_coverage.tsv
+
+}
 
 
 ##############################################
@@ -258,27 +273,44 @@ CpG_meth_cov_site() {
         gunzip ${SCRATCH}/BME_bedgraph/*.gz
     done 
     
-    ## CpG_sites.csv contains CpG sites which are found to be highly differntailly methylated between tumour and leukocytes
-    python3 $SCRIPTS/reshapers/SiteMethPercParser.py -b ${SCRATCH}/BME_bedgraph/ -p $CPG -o $RESULT/CpG_meth_percent_site.tsv
+    # CpG_sites.csv contains CpG sites which are found to be highly differntailly methylated between tumour and leukocytes
+    python3 $SCRIPTS/reshapers/SiteMethPercParser.py -b ${SCRATCH}/BME_bedgraph/ -p $CPG -o $RESULT/pre_CpG_meth_percent_site.tsv
+
+    # alter sample names in header to delimitions given
+    python $SCRIPTS/content_modifiers/change_header.py -i $RESULT/pre_CpG_meth_percent_site.tsv -n $N -o $RESULT/CpG_meth_percent_site.tsv
+    rm $RESULT/pre_CpG_meth_percent_site.tsv
 }
+
 
 ##########################################################
 
 
 ### EXECUTION ############################################
 
-# BS-convert the genome if the $BS_CONVERT variable is not empty
-if [ ! -z $BS_CONVERT ]; then
-    # BS conversion ONLY HAS TO BE PERFORMED ONCE PER GENOME
-    bismark_genome_preparation --bowtie2 $REF 
-fi
+main() {
+    # BS-convert the genome if the $BS_CONVERT variable is not empty
+    if [ ! -z $BS_CONVERT ]; then
+        bismark_genome_preparation --bowtie2 $REF 
+    fi
+    
+    # generate bismark SAM files
+    generate_SAMS
+    
+    # extract the methylation call for every C and write out its position and % methylated at said position. Report will allow you to work out methylation % in CpG, CHG & CHG contexts.
+    bismark_methylation_extractor -p -o $BME/ `find $SAMS -name *sam | xargs`
+    
+    # get coverage for all samples/FASTQs
+    Coverage
+    
+    # get coverage for all CpG that are meth/unmeth/OT/OB
+    CpG_divided_cov
+    
+    # get CpG methylation percantages for all sites stored in $CPG
+    CpG_meth_cov_site
+}
 
-generate_SAMS
-
-Coverage
-
-CpG_divided_cov
-
-CpG_meth_cov_site
+main
 
 ##########################################################
+
+
