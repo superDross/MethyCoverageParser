@@ -137,8 +137,11 @@ generate_SAMS() {
     R1=`find $SCRATCH/fastq_trimmed/ -iregex '.*\(_R1_\|_1.\).*val.*fq.gz'  | sort | xargs | sed 's/ /,/g'`
     R2=`find $SCRATCH/fastq_trimmed/ -iregex '.*\(_R2_\|_2.\).*val.*fq.gz'  | sort | xargs | sed 's/ /,/g'`
     
-    # Align to BS-converted genome and convert bam to sam files. Bowtie2 for >50bp reads.
+    # align to BS-converted genome and convert bam to sam files. Bowtie2 for >50bp reads.
     bismark --bowtie2 -1 $R1 -2 $R2 --sam -o $SAMS/ $REF 
+
+    # create a mapping efficiency summary file
+    find $SAMS/ -name "*_report.txt" | xargs grep "Mapping efficiency" | sed 's/:/\t/g' | awk -F"/" '{print $NF}' > $SCRATCH/mapping_efficiency_summary.txt
 
     # extract the methylation call for every C and write out its position and % methylated at said position. Report will allow you to work out methylation % in CpG, CHG & CHG contexts.
     bismark_methylation_extractor -p -o $BME/ `find $SAMS -name *sam | xargs`
