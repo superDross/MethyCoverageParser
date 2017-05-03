@@ -1,8 +1,7 @@
 #!/bin/bash
-# created by David R
+# created by David Ross
 version="0.01"
 
-# TODO: fix the sample name FASTQ issue described below
 # TODO: options to stop functions from being carried out
 
 ### NOTES ###############################################
@@ -25,9 +24,12 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
     echo -e "-r, --ref\tdirectory containing BS-converted genome"
     echo -e "-a, --amplicon\tBED file containing amplicon start and end coordinates"
     echo -e "-c, --cpg\tfile containing CpG sites of interest in BED like format"    
-    echo -e "-n, --number\tsplit the sample name to the n delimition of '_'"
+    echo -e "optional arguments:"
+    echo -e "-n, --number\tsplit the FASTQ name to the n delimition of '_' and use"
+    echo -e "            \tthe resulting substring as the sample name. default=2"
     echo -e "options:"
-    echo -e "--bs-convert\t BS-convert the given reference genome"
+    echo -e "--bs-convert\tBS-convert the given reference genome"
+    echo -e "--no-sams\tdo not generate SAM files"
     exit 0
 fi
 #########################################################
@@ -53,6 +55,7 @@ while [[ $# -gt 0 ]]; do
       -c|--cpg) CPG="$2"; shift ;;
       -n|--number) N="$2"; shift ;;
       --bs-convert) BS_CONVERT="YES" ;;
+      --no-sams) SAM_GENERATION="NO" ;;
       *) echo -e "Unknown argument:\t$arg"; exit 0 ;;
     esac
 
@@ -293,8 +296,10 @@ main() {
         bismark_genome_preparation --bowtie2 $REF 
     fi
     
-    # generate bismark SAM files
-    generate_SAMS
+    # generate bismark SAM files provided --no-sams has not been parsed
+    if [ -z $SAM_GENERATION ]; then
+        generate_SAMS
+    fi
     
     # extract the methylation call for every C and write out its position and % methylated at said position. Report will allow you to work out methylation % in CpG, CHG & CHG contexts.
     bismark_methylation_extractor -p -o $BME/ `find $SAMS -name *sam | xargs`
