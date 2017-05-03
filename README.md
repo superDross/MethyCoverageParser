@@ -16,7 +16,7 @@ A command line tool which uses [Bismark](https://www.bioinformatics.babraham.ac.
 - CpG_meth_percent_site.tsv; details CpG methylation percentages for selected genomic positions across all FASTQ files 
 
 ## Caveats
-- The --number flag needs to be set for all non-standard FASTQ file naming so the sample ID can be extracted from the FASTQ filename. The --number flag is used to extract the sample name from the FASTQ filename by splitting the filename by "_" and selecting an element number from the resulting list e.g. if the files are named like "1078TA_SAMPLE1_XXXX_XXXX.fq" and '--numbers 2' is used then the sample name extracted will be SAMPLE1. 
+- The --number argument needs to be set for all non-standard FASTQ file naming so the sample ID can be extracted from the FASTQ filename. The --number flag is used to extract the sample name from the FASTQ filename by splitting the filename by "_" and selecting an element number from the resulting list e.g. if the files are named like "1078TA_SAMPLE1_XXXX_XXXX.fq" and '--numbers 2' is used then the sample name extracted will be SAMPLE1. 
 
 - The required amplicon BED file (--amplicon) is expected to have a fourth column detailing whether the amplicon was designed to the original top strand (OT) or original bottom starnd (OB). If this is not present then a CpG_divided_coverage.tsv file cannot be created. e.g. <br />
        chr4 657827  876254  OB
