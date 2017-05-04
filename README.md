@@ -10,10 +10,10 @@ git clone https://github.com/superDross/MethyCoverageParser/
 ```
 
 ## Description
-A command line tool which uses [Bismark](https://www.bioinformatics.babraham.ac.uk/projects/bismark/) and a selection of parsing scripts upon FASTQ files derived from bisulfite-converted targeted-sequencing to produce three files:
-Coverage.tsv - details coverage across given amplicon ranges for every parsed FASTQ file 
-CpG_divided_coverage.tsv - contains coverage split into methylated/unmethylated/OT/OB for every read containing a CpG in the given FASTQ files 
-CpG_meth_percent_site.tsv - details CpG methylation percentages for selected genomic positions across all FASTQ files 
+A command line tool which uses [Bismark](https://www.bioinformatics.babraham.ac.uk/projects/bismark/) and a selection of parsing scripts upon FASTQ files derived from bisulfite-converted targeted-sequencing to produce three files: <br />
+Coverage.tsv - details coverage across given amplicon ranges for every parsed FASTQ file <br />
+CpG_divided_coverage.tsv - contains coverage split into methylated/unmethylated/OT/OB for every read containing a CpG in the given FASTQ files <br />
+CpG_meth_percent_site.tsv - details CpG methylation percentages for selected genomic positions across all FASTQ files
 
 ## Caveats
 - The required amplicon BED file (--amplicon argument) is expected to have a fourth column detailing whether the amplicon was designed to the original top strand (OT) or original bottom starnd (OB). If this is not present then a CpG_divided_coverage.tsv file cannot be created. e.g. <br />
