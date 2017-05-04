@@ -1,6 +1,6 @@
 #!/usr/bin/env perl 
 #David A. Parry, 17/05/2016
-##Edited regex for CpG file identification
+##Edited by David R: regex for CpG file identification
 
 #Written for Danny Laurent to parse output from bismark/bedtools analysis of 
 #methylation data
@@ -51,7 +51,7 @@ while (my $dir = shift){
     opendir(my $DIR, $dir) or die "Could not read directory $dir: $!\n";
     while (my $f = readdir($DIR)){
       #if ($f =~ /CpG_(O[TB])_(.+)\..*_bismark_pe\.txt_bismark_CpG_(meth|unmeth)\.BED_output\.txt/){
-      if ($f =~ /CpG_(O[TB])_(.+)\..*_CpG_(meth|unmeth).*_coverage\.txt/){
+      if ($f =~ /CpG_(O[TB])_(.+)\.*CpG_(meth|unmeth).*_coverage\.txt/){
             my $strand = $1;
             my $sample = $2;
             my $meth   = $3;

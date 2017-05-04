@@ -2,15 +2,9 @@
 # created by David Ross
 version="0.01"
 
-# TODO: options to stop functions from being carried out
 
 ### NOTES ###############################################
-# 1. FASTQ, HUMAN GENOME, AMPLICONBED and CpG_SITES have to be copied over to scratch first
-# 2. Samples names/id are assumed to be in the second "_" deliminition of the fastq filename and 
-#    and read 1 & 2 are identified by _R1_ or _R2_ in the fastq filename . If this is not the case
-#    then this script will likely explode e.g. 
-#	1079TA009L01_SampleName_001_R1_001.fastq
-#    THIS WILL LIKELY BE A PROBLEM AS EG DO IT DIFFERENTLY
+# FASTQ, HUMAN GENOME, AMPLICONBED and CpG_SITES have to be copied over to scratch first
 #########################################################
 
 
@@ -24,9 +18,6 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
     echo -e "-r, --ref\tdirectory containing BS-converted genome"
     echo -e "-a, --amplicon\tBED file containing amplicon start and end coordinates"
     echo -e "-c, --cpg\tfile containing CpG sites of interest in BED like format"    
-    echo -e "optional arguments:"
-    echo -e "-n, --number\tsplit the FASTQ name to the n delimition of '_' and use"
-    echo -e "            \tthe resulting substring as the sample name. default=2"
     echo -e "options:"
     echo -e "--bs-convert\tBS-convert the given reference genome"
     echo -e "--no-sams\tdo not generate SAM files"
@@ -53,7 +44,6 @@ while [[ $# -gt 0 ]]; do
       -r|--ref) REF="$2"; shift ;;
       -a|--amplicon) AMPLICON="$2"; shift ;;
       -c|--cpg) CPG="$2"; shift ;;
-      -n|--number) N="$2"; shift ;;
       --bs-convert) BS_CONVERT="YES" ;;
       --no-sams) SAM_GENERATION="NO" ;;
       *) echo -e "Unknown argument:\t$arg"; exit 0 ;;
@@ -80,11 +70,6 @@ elif [ -z $CPG ]; then
     exit 1 
 fi
 
-# default the --number to 2 if a value is not given
-if [ -z $N ]; then
-    N=2
-fi
-
 #########################################################
 
 
@@ -99,13 +84,12 @@ RESULT=$SCRATCH/results/
 # construct the required directories if they are not present
 mkdir -p $SAMS $BEDS/coverage $BME $FASTQC ${SCRATCH}/BME_BED/coverage/ ${SCRATCH}/BME_bedgraph/ $SCRATCH/fastq_trimmed/ $RESULT
 
-# cut the amplicon file (in case it has OT/OB info in the fourth column)
+# cut the amplicon file (in case it has OT/OB info in the fourth column) 
 awk '{print $1 "\t" $2 "\t" $3}' $AMPLICON > $RESULT/AmpliconLocation.BED
 CUT_AMP=$RESULT/AmpliconLocation.BED
 
 # create sam list
-# SAM_LIST=`find $FASTQ_DIR/ -name *gz | awk -F "/" '{print $NF}' | awk -F "_" '{print $2}' | uniq | xargs`
-SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.qz\|fq\|fastq\)$' | awk -F"/" '{print $NF}' | awk -F"." '{print $1}' | sort | xargs`
+SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.qz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | awk -F"/" '{print $NF}' | awk -F"." '{print $1}' | sort | xargs`
 ##########################################################
 
 
@@ -133,7 +117,7 @@ SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.qz\|fq\|fa
 
 generate_SAMS() {
     # Quality and adpater trimming of all fastqs. CS1rc and CS2rc need to be trimmed off, this explains the high C % per base sequence count at the end of the read.
-    FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.qz\|fq\|fastq\)$'`
+    FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.qz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$'`
 
     # -n2 works under the assumption that the FATSQS are sorted in read pairs
     echo $FASTQS | xargs -n2 trim_galore --paired \
@@ -146,8 +130,8 @@ generate_SAMS() {
     fastqc $SCRATCH/fastq_trimmed/*val*gz -o $FASTQC
     
     # generate list of post-trimmed Read 1 and Read 2 fastq files (not sure if adding the comma is neccessary.
-    R1=`find $SCRATCH/fastq_trimmed/ -iregex '.*\(_R1_\|_1.\).*val.*fq.gz'  | sort | xargs | sed 's/ /,/g'`
-    R2=`find $SCRATCH/fastq_trimmed/ -iregex '.*\(_R2_\|_2.\).*val.*fq.gz'  | sort | xargs | sed 's/ /,/g'`
+    R1=`find $SCRATCH/fastq_trimmed/ -iregex '.*\(_R1_*val.*\|val_1.\)\(fq.gz\|fastq.gz\|fq\|fastq\|sanfastq\|sanfastq.gz\)' | sort | xargs | sed 's/ /,/g'`
+    R2=`find $SCRATCH/fastq_trimmed/ -iregex '.*\(_R2_*val.*\|val_2.\)\(fq.gz\|fastq.gz\|fq\|fastq\|sanfastq\|sanfastq.gz\)' | sort | xargs | sed 's/ /,/g'`
     
     # align to BS-converted genome and convert bam to sam files. Bowtie2 for >50bp reads.
     bismark --bowtie2 -1 $R1 -2 $R2 --sam -o $SAMS/ $REF 
@@ -172,8 +156,8 @@ generate_SAMS() {
 #   CUT_AMP = bed file containing amplicon co-ordinates
 #
 # Returns:
-#   a tsv file which shows the methylated CpG
-#   coverage for each sample (columns) across
+#   a tsv file which shows the coverage
+#   for each sample (columns) across
 #   each amplicon region (rows).
 ##############################################
 
@@ -192,7 +176,7 @@ Coverage() {
     python $SCRIPTS/reshapers/CoverageParser.py -d $BEDS/coverage/ -o $RESULT/pre_Coverage.tsv
 
     # alter sample names in header to delimitions given
-    python $SCRIPTS/content_modifiers/change_header.py -i $RESULT/pre_Coverage.tsv -n $N -o $RESULT/Coverage.tsv
+    python $SCRIPTS/content_modifiers/change_header.py -i $RESULT/pre_Coverage.tsv -o $RESULT/Coverage.tsv
     rm $RESULT/pre_Coverage.tsv
 }
 
@@ -240,7 +224,7 @@ CpG_divided_cov() {
     perl -w $SCRIPTS/reshapers/DivededCoverageParser.pl $AMPLICON ${SCRATCH}/BME_BED/coverage/ > $RESULT/pre_CpG_divided_coverage.tsv
 
     # alter sample names in header to delimitions given
-    python $SCRIPTS/content_modifiers/change_header.py -i $RESULT/pre_CpG_divided_coverage.tsv -n $N -o $RESULT/CpG_divided_coverage.tsv
+    python $SCRIPTS/content_modifiers/change_header.py -i $RESULT/pre_CpG_divided_coverage.tsv -o $RESULT/CpG_divided_coverage.tsv
     rm $RESULT/pre_CpG_divided_coverage.tsv
 
 }
@@ -280,7 +264,7 @@ CpG_meth_cov_site() {
     python3 $SCRIPTS/reshapers/SiteMethPercParser.py -b ${SCRATCH}/BME_bedgraph/ -p $CPG -o $RESULT/pre_CpG_meth_percent_site.tsv
 
     # alter sample names in header to delimitions given
-    python $SCRIPTS/content_modifiers/change_header.py -i $RESULT/pre_CpG_meth_percent_site.tsv -n $N -o $RESULT/CpG_meth_percent_site.tsv
+    python $SCRIPTS/content_modifiers/change_header.py -i $RESULT/pre_CpG_meth_percent_site.tsv -o $RESULT/CpG_meth_percent_site.tsv
     rm $RESULT/pre_CpG_meth_percent_site.tsv
 }
 
@@ -298,7 +282,7 @@ main() {
     
     # generate bismark SAM files provided --no-sams has not been parsed
     if [ -z $SAM_GENERATION ]; then
-        generate_SAMS
+    	generate_SAMS
     fi
     
     # extract the methylation call for every C and write out its position and % methylated at said position. Report will allow you to work out methylation % in CpG, CHG & CHG contexts.

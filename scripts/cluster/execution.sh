@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # define job name, email and working dir
-#$ -N FuncTest.BS_Seq_Analysis_Test
+#$ -N BigTest.BS_Seq_Analysis
 #$ -M dross11@staffmail.ed.ac.uk
 #$ -wd /exports/eddie/scratch/dross11/
 
@@ -31,5 +31,4 @@ $HOME/MethyCoverageParser/MethyCoverageParser.sh \
 	--ref $SCRATCH/human/hg38-1000G/ \
 	--amplicon $SCRATCH/FluidigmAmplicons/AmpliconDaveParry.BED \
 	--cpg $SCRATCH/FluidigmAmplicons/CpG_locations_hg38_strand_converted.txt \
-	--number 2
 
