@@ -5,7 +5,8 @@ import argparse
 
 def main(filename, output):
     ''' Change the name of the samples in the header of the
-	inputed files to the most unique part of the name. 
+	inputed files (MethylCoverageParser.sh output) to 
+	the most unique part of the name. 
 
     Args:
 	filename: input file

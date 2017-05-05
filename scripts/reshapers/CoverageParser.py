@@ -3,7 +3,6 @@
 created by Danny Laurents 
 edited by David R: cli interface construction, redefined variables, docstring
 '''
-# TODO: sample names is assumed to be in the second deliminition of "_" of the cverage file. This may prove problematic when a different naming convention is used for the coverage files.
 import os
 import argparse
 

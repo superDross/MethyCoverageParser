@@ -1,3 +1,4 @@
+# NOT FOR GENERAL USAGE, used once as the sample IDs instead of the sample Names were placed into the columns of the tsv files in results/ dir
 import sys
 
 convert = { 'S1': 'B33', 'S2': 'B41', 'S3': 'B42', 'S4': 'B66', 'S5': 'B67',

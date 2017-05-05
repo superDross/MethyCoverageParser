@@ -81,14 +81,12 @@ BME=$SCRATCH/BME/
 FASTQC=$SCRATCH/fastqc/
 RESULT=$SCRATCH/results/
 
-# construct the required directories if they are not present
-mkdir -p $SAMS $BEDS/coverage $BME $FASTQC ${SCRATCH}/BME_BED/coverage/ ${SCRATCH}/BME_bedgraph/ $SCRATCH/fastq_trimmed/ $RESULT
 
-# cut the amplicon file (in case it has OT/OB info in the fourth column) 
+# cut the amplicon file (in case it has OT/OB info in the fourth column), bedtools coverage behaves differently if a fourth column is present so doing this is neccassery for getting an accurate output from Coverage() and CpG_meth_cov_site()
 awk '{print $1 "\t" $2 "\t" $3}' $AMPLICON > $RESULT/AmpliconLocation.BED
 CUT_AMP=$RESULT/AmpliconLocation.BED
 
-# create sam list
+# create fastq-filename/sample list
 SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.qz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | awk -F"/" '{print $NF}' | awk -F"." '{print $1}' | sort | xargs`
 ##########################################################
 
@@ -100,9 +98,6 @@ SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.qz\|fq\|fa
 #
 # Trim the CS1rc and CS2rc adapters from the 
 # FASTQ files, generate fastqc and SAM files.
-# Extract methylation calls in all 3 contexts
-# (CpG, CHG & CHG) and output their positions
-# and methy % into seperate context files.
 #
 # Globals:
 #   FASTQ_DIR = dir containing subdirs with fastq pairs.
@@ -162,7 +157,7 @@ generate_SAMS() {
 ##############################################
 
 Coverage() {
-    # determines which read pairs contain a methylated CpG and parse the read start and end positions into a BED file
+	# determines which reads are proper pairs (judging from the bitwise flags..) and parse the read start and end positions into a BED file
     find $SAMS -name *sam | xargs -I {} python2 $SCRIPTS/sam_parsers/Sam2Bed.py {} {}.bed
     find $SAMS -name *bed -print0 | xargs -r0 mv -t $BEDS
     
@@ -175,7 +170,7 @@ Coverage() {
     # give the dir containing the coverage text files
     python $SCRIPTS/reshapers/CoverageParser.py -d $BEDS/coverage/ -o $RESULT/pre_Coverage.tsv
 
-    # alter sample names in header to delimitions given
+    # alter column names in header to sample names
     python $SCRIPTS/content_modifiers/change_header.py -i $RESULT/pre_Coverage.tsv -o $RESULT/Coverage.tsv
     rm $RESULT/pre_Coverage.tsv
 }
@@ -220,10 +215,10 @@ CpG_divided_cov() {
         mv ${bed}_coverage.txt ${SCRATCH}/BME_BED/coverage/
     done
     
-    # DavidParry.pl and AmpliconLocationDP.BED
+    # Create the output tsv file
     perl -w $SCRIPTS/reshapers/DivededCoverageParser.pl $AMPLICON ${SCRATCH}/BME_BED/coverage/ > $RESULT/pre_CpG_divided_coverage.tsv
 
-    # alter sample names in header to delimitions given
+    # alter the column names to the sample it refers to 
     python $SCRIPTS/content_modifiers/change_header.py -i $RESULT/pre_CpG_divided_coverage.tsv -o $RESULT/CpG_divided_coverage.tsv
     rm $RESULT/pre_CpG_divided_coverage.tsv
 
@@ -263,7 +258,7 @@ CpG_meth_cov_site() {
     # CpG_sites.csv contains CpG sites which are found to be highly differntailly methylated between tumour and leukocytes
     python3 $SCRIPTS/reshapers/SiteMethPercParser.py -b ${SCRATCH}/BME_bedgraph/ -p $CPG -o $RESULT/pre_CpG_meth_percent_site.tsv
 
-    # alter sample names in header to delimitions given
+    # alter column names in header to sample names
     python $SCRIPTS/content_modifiers/change_header.py -i $RESULT/pre_CpG_meth_percent_site.tsv -o $RESULT/CpG_meth_percent_site.tsv
     rm $RESULT/pre_CpG_meth_percent_site.tsv
 }
@@ -275,7 +270,10 @@ CpG_meth_cov_site() {
 ### EXECUTION ############################################
 
 main() {
-    # BS-convert the genome if the $BS_CONVERT variable is not empty
+    # construct the required directories if they are not present
+    mkdir -p $SAMS $BEDS/coverage $BME $FASTQC ${SCRATCH}/BME_BED/coverage/ ${SCRATCH}/BME_bedgraph/ $SCRATCH/fastq_trimmed/ $RESULT
+
+    # BS-convert the genome if the $BS_CONVERT variable is not empty (; if --bs-convert option selected)
     if [ ! -z $BS_CONVERT ]; then
         bismark_genome_preparation --bowtie2 $REF 
     fi
