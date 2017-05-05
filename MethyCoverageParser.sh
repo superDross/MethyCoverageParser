@@ -280,7 +280,7 @@ main() {
         bismark_genome_preparation --bowtie2 $REF 
     fi
     
-    # generate bismark SAM files provided --no-sams has not been parsed
+    # generate bismark SAM files provided --no-sams option has not been given
     if [ -z $SAM_GENERATION ]; then
     	generate_SAMS
     fi
