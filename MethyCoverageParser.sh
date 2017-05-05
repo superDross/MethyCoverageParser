@@ -112,7 +112,20 @@ SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.qz\|fq\|fa
 
 generate_SAMS() {
     # Quality and adpater trimming of all fastqs. CS1rc and CS2rc need to be trimmed off, this explains the high C % per base sequence count at the end of the read.
-    FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.qz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$'`
+    FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.qz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | sort`
+    
+    # ensure there are an even number of fastq files
+    FASTQS_NUM=`echo $FASTQ | wc -w`
+    if [ $((FASTQ_NUM%2)) -eq 0 ]; then
+        # even
+	echo "SUCCESS: Acceptable number of fastq files found ($FASTQS_NUM). Fastq files will be paired and parsed into trim-galore as follows:"
+	echo `echo $FASTQS | xargs -n 2`
+    else
+	# odd
+	>&2 echo "ERROR: Unacceptable number of fastq files found ($FASTQS_NUM). Must be even number of fastq files. The following fastq files would have been paired before being parsed into trim-galore:"
+	>&2 echo `echo $FASTQS | xargs -n 2`
+	exit 1
+    fi
 
     # -n2 works under the assumption that the FATSQS are sorted in read pairs
     echo $FASTQS | xargs -n2 trim_galore --paired \

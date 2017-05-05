@@ -20,22 +20,24 @@ A command line tool which uses [Bismark](https://www.bioinformatics.babraham.ac.
 Reading the [Bismark documentation](https://www.bioinformatics.babraham.ac.uk/projects/bismark/Bismark_User_Guide.pdf) is **highly recommended** prior to using this script.
 
 ## Caveats
-- The required amplicon BED file (--amplicon argument) is expected to have a fourth column detailing whether the amplicon was designed to the original top strand (OT) or original bottom strand (OB). If this is not present then a CpG_divided_coverage.tsv file cannot be created. e.g. <br />
+- The required amplicon BED file (--amplicon argument) is expected to have a fourth column detailing whether the amplicon was designed to the original top strand (OT) or original bottom strand (OB). If this is not present then a CpG_divided_coverage.tsv file cannot be created. Formating of amplicon BED file should be as below: <br /> <br />
        chr4&nbsp;&nbsp;&nbsp;&nbsp;657827&nbsp;&nbsp;&nbsp;&nbsp;876254&nbsp;&nbsp;&nbsp;&nbsp;OB
 
-- The mandatory CpG site file (--cpg argument) is expected to contain a probe name in the first field and strand orientation in the last field with a header present in the first row. If it does not then the CpG_meth_percent_site.tsv file cannot be generated. e.g. <br />
+- The mandatory CpG site file (--cpg argument) is expected to contain a probe name in the first field and strand orientation in the last field with a header present in the first row. If it does not then the CpG_meth_percent_site.tsv file cannot be generated. Formatting of the CpG site file should be as below: <br /> <br />
         probe&nbsp;&nbsp;&nbsp;&nbsp;chrom&nbsp;&nbsp;&nbsp;&nbsp;pos&nbsp;&nbsp;&nbsp;&nbsp;strand <br />
         GB788&nbsp;&nbsp;&nbsp;&nbsp;chr3&nbsp;&nbsp;&nbsp;&nbsp;73837&nbsp;&nbsp;&nbsp;&nbsp;-
 
 ## Requirements
-python <br />
-perl <br />
-TrimGalore <br />
-bowtie2 <br />
-bismark <br />
-FastQC <br />
+The following programs must be in your PATH before running the script:
+```
+python 
+perl 
+TrimGalore 
+bowtie2 
+bismark 
+FastQC 
 bedtools
-
+```
 ## Example Usage
 ```bash
 MethyCoverageParser.sh \
