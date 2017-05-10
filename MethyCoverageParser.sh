@@ -4,7 +4,7 @@ version="0.01"
 
 
 ### NOTES ###############################################
-# FASTQ, HUMAN GENOME, AMPLICONBED and CpG_SITES have to be copied over to scratch first
+# FASTQ, HUMAN_GENOME, AMPLICON_BED and CpG_SITES have to be copied over to scratch first
 #########################################################
 
 
@@ -17,6 +17,8 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
     echo -e "-d, --dir\tdirectory in which data generation will take place (SCRATCH)"
     echo -e "-r, --ref\tdirectory containing BS-converted genome"
     echo -e "-a, --amplicon\tBED file containing amplicon start and end coordinates"
+    echo -e "optional arguments:"
+    echo -e "-b, --basespace\tbasespace project name to download FASTQ files from"
     echo -e "-c, --cpg\tfile containing CpG sites of interest in BED like format"    
     echo -e "options:"
     echo -e "--bs-convert\tBS-convert the given reference genome"
@@ -44,6 +46,7 @@ while [[ $# -gt 0 ]]; do
       -r|--ref) REF="$2"; shift ;;
       -a|--amplicon) AMPLICON="$2"; shift ;;
       -c|--cpg) CPG="$2"; shift ;;
+      -b|--basespace) BASESPACE="$2"; shift ;;
       --bs-convert) BS_CONVERT="YES" ;;
       --no-sams) SAM_GENERATION="NO" ;;
       *) echo -e "Unknown argument:\t$arg"; exit 0 ;;
@@ -65,9 +68,6 @@ elif [ -z $REF ]; then
 elif [ -z $AMPLICON ]; then
     echo "--amplicon argument is required"
     exit 1 
-elif [ -z $CPG ]; then
-    echo "--cpg argument is required"
-    exit 1 
 fi
 
 #########################################################
@@ -81,17 +81,41 @@ BME=$SCRATCH/BME/
 FASTQC=$SCRATCH/fastqc/
 RESULT=$SCRATCH/results/
 
-
-# cut the amplicon file (in case it has OT/OB info in the fourth column), bedtools coverage behaves differently if a fourth column is present so doing this is neccassery for getting an accurate output from Coverage() and CpG_meth_cov_site()
-awk '{print $1 "\t" $2 "\t" $3}' $AMPLICON > $RESULT/AmpliconLocation.BED
-CUT_AMP=$RESULT/AmpliconLocation.BED
-
-# create fastq-filename/sample list
-SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.qz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | awk -F"/" '{print $NF}' | awk -F"." '{print $1}' | sort | xargs`
 ##########################################################
 
 
 ### FUNCTIONS ############################################
+
+##############################################
+# download_FASTQ()
+#
+# download fastq files from a parsed project 
+# name present on your basespace page
+#
+# Globals:
+#   FASTQ_DIR = dir containing subdir with fastq pairs
+#   BASESPACE = basespace project name containing FASTQ files
+#
+# Returns:
+#   downloads and saves fastq files to $FASTQ_DIR
+#
+##############################################
+
+download_FASTQ() {
+    # check config file exist
+    if [ ! -f $HOME/.basespacepy.cfg ]; then
+       >&2 echo "ERROR: $HOME/.basespacepy.cfg does not exist"
+       exit 1
+    fi 
+
+    KEY=`awk 'FNR == 3 {print $3}' ~/.basespacepy.cfg`
+    SECRET=`awk 'FNR == 4 {print $3}' ~/.basespacepy.cfg`
+    TOKEN=`awk 'FNR == 5 {print $3}' ~/.basespacepy.cfg`
+    
+    python2 $SCRIPTS/basespace/samples2files.py \
+      -K $KEY -S $SECRET -A $TOKEN -y $BASESPACE -o $FASTQ_DIR
+}
+
 
 ##############################################
 # generate_SAMS()
@@ -119,11 +143,11 @@ generate_SAMS() {
     if [ $((FASTQ_NUM%2)) -eq 0 ]; then
         # even
 	echo "SUCCESS: Acceptable number of fastq files found ($FASTQS_NUM). Fastq files will be paired and parsed into trim-galore as follows:"
-	echo `echo $FASTQS | xargs -n 2`
+	for f in `echo $FASTQS | xargs -n 2`; do echo -e "$f \n"; done
     else
 	# odd
 	>&2 echo "ERROR: Unacceptable number of fastq files found ($FASTQS_NUM). Must be even number of fastq files. The following fastq files would have been paired before being parsed into trim-galore:"
-	>&2 echo `echo $FASTQS | xargs -n 2`
+	for f in `echo $FASTQS | xargs -n 2`; do echo -e "$f \n"; done
 	exit 1
     fi
 
@@ -246,7 +270,6 @@ CpG_divided_cov() {
 # into a tsv file.
 #
 # Globals:
-#   SAM_LIST = list of samples used to generate fastq files
 #   BME = dir to contain meth calls for every CpG CpH and CHH sites
 #   SCRIPTS = dir containing all scripts
 #   RESULT = dir to place returned file
@@ -261,15 +284,23 @@ CpG_divided_cov() {
 ##############################################
 
 CpG_meth_cov_site() {
+    # create fastq-filename/sample list
+    SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.qz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | awk -F"/" '{print $NF}' | awk -F"." '{print $1}' | sort | xargs`
+    
     # bismark2bedgraph needed to produce the coverage files along with the bedgraph files
     for sam in $SAM_LIST; do
         cpg_pairs=`find $BME -name "CpG*_${sam}_*txt" | xargs`
         bismark2bedGraph $cpg_pairs --dir ${SCRATCH}/BME_bedgraph -o ${sam}.bedGraph
         gunzip ${SCRATCH}/BME_bedgraph/*.gz
     done 
-    
-    # CpG_sites.csv contains CpG sites which are found to be highly differntailly methylated between tumour and leukocytes
-    python3 $SCRIPTS/reshapers/SiteMethPercParser.py -b ${SCRATCH}/BME_bedgraph/ -p $CPG -o $RESULT/pre_CpG_meth_percent_site.tsv
+   
+    # determine whther to filter for specific CpG sites or not 
+    if [ -z $CPG ]; then 
+        python3 $SCRIPTS/reshapers/SiteMethPercParser.py -b ${SCRATCH}/BME_bedgraph/ -o $RESULT/pre_CpG_meth_percent_site.tsv
+    else
+        # CpG_sites.csv contains CpG sites which are found to be highly differntailly methylated between tumour and leukocytes
+        python3 $SCRIPTS/reshapers/SiteMethPercParser.py -b ${SCRATCH}/BME_bedgraph/ -p $CPG -o $RESULT/pre_CpG_meth_percent_site.tsv
+    fi
 
     # alter column names in header to sample names
     python $SCRIPTS/content_modifiers/change_header.py -i $RESULT/pre_CpG_meth_percent_site.tsv -o $RESULT/CpG_meth_percent_site.tsv
@@ -286,6 +317,16 @@ main() {
     # construct the required directories if they are not present
     mkdir -p $SAMS $BEDS/coverage $BME $FASTQC ${SCRATCH}/BME_BED/coverage/ ${SCRATCH}/BME_bedgraph/ $SCRATCH/fastq_trimmed/ $RESULT
 
+    # cut the amplicon file (in case it has OT/OB info in the fourth column), bedtools coverage behaves differently if a fourth column is present 
+    # so doing this is neccassery for getting an accurate output from Coverage() and CpG_meth_cov_site()
+    awk '{print $1 "\t" $2 "\t" $3}' $AMPLICON > $RESULT/AmpliconLocation.BED
+    CUT_AMP=$RESULT/AmpliconLocation.BED
+
+    # download FASTQ files if BASESPACE var not empty (; if --basespace arg given)
+    if [ ! -z $BASESPACE ]; then
+	download_FASTQ
+    fi
+
     # BS-convert the genome if the $BS_CONVERT variable is not empty (; if --bs-convert option selected)
     if [ ! -z $BS_CONVERT ]; then
         bismark_genome_preparation --bowtie2 $REF 
@@ -296,8 +337,9 @@ main() {
     	generate_SAMS
     fi
     
-    # extract the methylation call for every C and write out its position and % methylated at said position. Report will allow you to work out methylation % in CpG, CHG & CHG contexts.
-    bismark_methylation_extractor -p -o $BME/ `find $SAMS -name *sam | xargs`
+    # extract the methylation call for every C and write out its position. Report will allow you to work out methylation % in CpG, CHG & CHG contexts. 
+    # --mbias_off as GD perl module error disallows its creation in eddie3.
+    bismark_methylation_extractor -p --mbias_off -o $BME/ `find $SAMS -name *sam | xargs`
     
     # get coverage for all samples/FASTQs
     Coverage
@@ -312,5 +354,4 @@ main() {
 main
 
 ##########################################################
-
 
