@@ -179,7 +179,7 @@ if __name__ == '__main__':
                 sampleName=options.sampleName, projectName=options.projectName, \
                 outputDirectory=options.outputDirectory, createBsDir=options.createBsDir)
     except SSLError:
-	print("ERROR: SSLError, trying again...")
+	print("ERROR: time out SSLError, trying again...")
         Samples.download(options.clientKey, options.clientSecret, options.accessToken, \
                 sampleId=options.sampleId, projectId=options.projectId, \
                 sampleName=options.sampleName, projectName=options.projectName, \

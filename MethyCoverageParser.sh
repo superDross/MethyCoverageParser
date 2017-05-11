@@ -2,6 +2,9 @@
 # created by David Ross
 version="0.01"
 
+# TODO: convert all python2 scripts to python3
+# TODO: dicts in reshapers/*.py should become OrderedDicts
+# TODO: option to add --three_prime_clip_r1 for trim_galore
 
 ### NOTES ###############################################
 # FASTQ, HUMAN_GENOME, AMPLICON_BED and CpG_SITES have to be copied over to scratch first
@@ -10,19 +13,25 @@ version="0.01"
 
 ### HELP PAGE ###########################################
 if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
-    echo -e "usage:\t[-h] [-f DIR] [-d DIR] [-r DIR] [-a FILE] [-c FILE] [-o DIR] [-s STRING]\n"
-    echo -e "Calculate the total coverage, CpG coverage & CpG coverage per given CpG site from \na given set of FASTQ files over a set of given amplicons\n"
-    echo -e "required arguments:"
-    echo -e "-f, --fastq\tpath containing dirs with fastq files"
-    echo -e "-d, --dir\tdirectory in which data generation will take place (SCRATCH)"
-    echo -e "-r, --ref\tdirectory containing BS-converted genome"
-    echo -e "-a, --amplicon\tBED file containing amplicon start and end coordinates"
-    echo -e "optional arguments:"
-    echo -e "-b, --basespace\tbasespace project name to download FASTQ files from"
-    echo -e "-c, --cpg\tfile containing CpG sites of interest in BED like format"    
-    echo -e "options:"
-    echo -e "--bs-convert\tBS-convert the given reference genome"
-    echo -e "--no-sams\tdo not generate SAM files"
+	cat <<- EOF
+		usage:  [-h] [-f DIR] [-d DIR] [-r DIR] [-a FILE] [-c FILE] [-o DIR] [-s STRING]
+
+		Calculate the total coverage, CpG coverage & CpG coverage per given CpG site from 
+		a given set of FASTQ files over a set of given amplicons
+
+		required arguments:
+		-f, --fastq     path containing dirs with fastq files
+		-d, --dir       directory in which data generation will take place (SCRATCH)
+		-r, --ref       directory containing BS-converted genome
+		-a, --amplicon  BED file containing amplicon start and end coordinates
+		optional arguments:
+		-b, --basespace basespace project name to download FASTQ files from
+		-c, --cpg       file containing CpG sites of interest in BED like format    
+		options:
+		--bs-convert    BS-convert the given reference genome
+		--no-sams       do not generate SAM files
+        --no-trim       do not trim FASTQ files
+	EOF
     exit 0
 fi
 #########################################################
@@ -49,6 +58,7 @@ while [[ $# -gt 0 ]]; do
       -b|--basespace) BASESPACE="$2"; shift ;;
       --bs-convert) BS_CONVERT="YES" ;;
       --no-sams) SAM_GENERATION="NO" ;;
+      --no-trim) TRIM="NO" ;;
       *) echo -e "Unknown argument:\t$arg"; exit 0 ;;
     esac
 
@@ -104,10 +114,12 @@ RESULT=$SCRATCH/results/
 download_FASTQ() {
     # check config file exist
     if [ ! -f $HOME/.basespacepy.cfg ]; then
-       >&2 echo "ERROR: $HOME/.basespacepy.cfg does not exist"
+       >&2 echo "ERROR: $HOME/.basespacepy.cfg does not exist," \
+                "this must be present to download FASTQ files from basespace"
        exit 1
     fi 
-
+    
+    # basespace-python-sdk has trouble reading the config file, hence the below awk hack
     KEY=`awk 'FNR == 3 {print $3}' ~/.basespacepy.cfg`
     SECRET=`awk 'FNR == 4 {print $3}' ~/.basespacepy.cfg`
     TOKEN=`awk 'FNR == 5 {print $3}' ~/.basespacepy.cfg`
@@ -118,58 +130,80 @@ download_FASTQ() {
 
 
 ##############################################
-# generate_SAMS()
+# trim_FASTQS()
 #
 # Trim the CS1rc and CS2rc adapters from the 
-# FASTQ files, generate fastqc and SAM files.
+# FASTQ files.
 #
 # Globals:
-#   FASTQ_DIR = dir containing subdirs with fastq pairs.
-#   REF = dir containing BS-converted reference geneome.
 #   SCRATCH = dir used to generate files
-#   SAMS = dir containing SAM files
-#
+#   FASTQC = dir to contain fastqc reports
+# 
 # Returns:
 #   SAM files
 #
 ##############################################
 
-generate_SAMS() {
-    # Quality and adpater trimming of all fastqs. CS1rc and CS2rc need to be trimmed off, this explains the high C % per base sequence count at the end of the read.
+trim_FASTQS() {
+    # get all FASTQ files and ensure there are an even number of fastq files
     FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.qz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | sort`
-    
-    # ensure there are an even number of fastq files
-    FASTQS_NUM=`echo $FASTQ | wc -w`
-    if [ $((FASTQ_NUM%2)) -eq 0 ]; then
+    FASTQS_NUM=`echo $FASTQS | wc -w`
+
+    if [ $((FASTQS_NUM%2)) -eq 0 ]; then
         # even
-	echo "SUCCESS: Acceptable number of fastq files found ($FASTQS_NUM). Fastq files will be paired and parsed into trim-galore as follows:"
-	for f in `echo $FASTQS | xargs -n 2`; do echo -e "$f \n"; done
+        echo "SUCCESS: Acceptable number of fastq files found ($FASTQS_NUM)." \
+             "Fastq files will be paired and parsed into trim-galore as follows:"
+        echo $FASTQS | xargs -n 2
     else
-	# odd
-	>&2 echo "ERROR: Unacceptable number of fastq files found ($FASTQS_NUM). Must be even number of fastq files. The following fastq files would have been paired before being parsed into trim-galore:"
-	for f in `echo $FASTQS | xargs -n 2`; do echo -e "$f \n"; done
-	exit 1
+	    # odd
+        >&2 echo "ERROR: Unacceptable number of fastq files found ($FASTQS_NUM)." \
+                 "Must be even number of fastq files. The following fastq files" \
+                 "would have been paired before being parsed into trim-galore:"
+        >&2 echo $FASTQS | xargs -n 2
+        exit 1
     fi
 
     # -n2 works under the assumption that the FATSQS are sorted in read pairs
+    # adapter and adapter2 are the CS1rc and CS2rc from fluidigm
     echo $FASTQS | xargs -n2 trim_galore --paired \
     				     --path_to_cutadapt /exports/eddie3_homes_local/dross11/.local/bin/cutadapt \
     				     --output_dir $SCRATCH/fastq_trimmed/ \
     				     --adapter AGACCAAGTCTCTGCTACCGTA \
     				     --adapter2 TGTAGAACCATGTCGTCAGTGT \
     				     --trim1 
-    
+        
     fastqc $SCRATCH/fastq_trimmed/*val*gz -o $FASTQC
-    
+ 
+}
+
+
+##############################################
+# generate_SAMS()
+#
+# Trim the CS1rc and CS2rc adapters from the 
+# FASTQ files, generate fastqc and SAM files.
+#
+# Globals:
+#   REF = dir containing BS-converted reference geneome.
+#   SCRATCH = dir used to generate files
+#   SAMS = dir containing SAM files
+# 
+# Returns:
+#   SAM files
+#
+##############################################
+
+generate_SAMS() {
+   
     # generate list of post-trimmed Read 1 and Read 2 fastq files (not sure if adding the comma is neccessary.
-    R1=`find $SCRATCH/fastq_trimmed/ -iregex '.*\(_R1_*val.*\|val_1.\)\(fq.gz\|fastq.gz\|fq\|fastq\|sanfastq\|sanfastq.gz\)' | sort | xargs | sed 's/ /,/g'`
+    R1=`find $SCRATCH/fastq_trimmed/ -iregex '.*\(_R1_*val.*\|val_1.\)\(fq.gz\|fastq.gz\|fq\|fastq\|sanfastq\|sanfastq.gz\)' |  sort | xargs | sed 's/ /,/g'`
     R2=`find $SCRATCH/fastq_trimmed/ -iregex '.*\(_R2_*val.*\|val_2.\)\(fq.gz\|fastq.gz\|fq\|fastq\|sanfastq\|sanfastq.gz\)' | sort | xargs | sed 's/ /,/g'`
     
     # align to BS-converted genome and convert bam to sam files. Bowtie2 for >50bp reads.
     bismark --bowtie2 -1 $R1 -2 $R2 --sam -o $SAMS/ $REF 
 
     # create a mapping efficiency summary file
-    find $SAMS/ -name "*_report.txt" | xargs grep "Mapping efficiency" | sed 's/:/\t/g' | awk -F"/" '{print $NF}' > $SCRATCH/mapping_efficiency_summary.txt
+    find $SAMS/ -name "*_report.txt" | xargs grep "Mapping efficiency" | sed 's/:/\t/g' | awk -F"/" '{print $NF}' > $RESULT/mapping_efficiency_summary.txt
 
 }
 
@@ -205,10 +239,12 @@ Coverage() {
     done
     
     # give the dir containing the coverage text files
-    python $SCRIPTS/reshapers/CoverageParser.py -d $BEDS/coverage/ -o $RESULT/pre_Coverage.tsv
+    python $SCRIPTS/reshapers/CoverageParser.py \
+        -d $BEDS/coverage/ -o $RESULT/pre_Coverage.tsv
 
     # alter column names in header to sample names
-    python $SCRIPTS/content_modifiers/change_header.py -i $RESULT/pre_Coverage.tsv -o $RESULT/Coverage.tsv
+    python $SCRIPTS/content_modifiers/change_header.py \
+        -i $RESULT/pre_Coverage.tsv -o $RESULT/Coverage.tsv
     rm $RESULT/pre_Coverage.tsv
 }
 
@@ -253,10 +289,12 @@ CpG_divided_cov() {
     done
     
     # Create the output tsv file
-    perl -w $SCRIPTS/reshapers/DivededCoverageParser.pl $AMPLICON ${SCRATCH}/BME_BED/coverage/ > $RESULT/pre_CpG_divided_coverage.tsv
+    perl -w $SCRIPTS/reshapers/DivededCoverageParser.pl \
+        $AMPLICON ${SCRATCH}/BME_BED/coverage/ > $RESULT/pre_CpG_divided_coverage.tsv
 
     # alter the column names to the sample it refers to 
-    python $SCRIPTS/content_modifiers/change_header.py -i $RESULT/pre_CpG_divided_coverage.tsv -o $RESULT/CpG_divided_coverage.tsv
+    python $SCRIPTS/content_modifiers/change_header.py \
+        -i $RESULT/pre_CpG_divided_coverage.tsv -o $RESULT/CpG_divided_coverage.tsv
     rm $RESULT/pre_CpG_divided_coverage.tsv
 
 }
@@ -296,14 +334,17 @@ CpG_meth_cov_site() {
    
     # determine whther to filter for specific CpG sites or not 
     if [ -z $CPG ]; then 
-        python3 $SCRIPTS/reshapers/SiteMethPercParser.py -b ${SCRATCH}/BME_bedgraph/ -o $RESULT/pre_CpG_meth_percent_site.tsv
+        python3 $SCRIPTS/reshapers/SiteMethPercParser.py \
+            -b ${SCRATCH}/BME_bedgraph/ -o $RESULT/pre_CpG_meth_percent_site.tsv
     else
         # CpG_sites.csv contains CpG sites which are found to be highly differntailly methylated between tumour and leukocytes
-        python3 $SCRIPTS/reshapers/SiteMethPercParser.py -b ${SCRATCH}/BME_bedgraph/ -p $CPG -o $RESULT/pre_CpG_meth_percent_site.tsv
+        python3 $SCRIPTS/reshapers/SiteMethPercParser.py \
+            -b ${SCRATCH}/BME_bedgraph/ -p $CPG -o $RESULT/pre_CpG_meth_percent_site.tsv
     fi
 
     # alter column names in header to sample names
-    python $SCRIPTS/content_modifiers/change_header.py -i $RESULT/pre_CpG_meth_percent_site.tsv -o $RESULT/CpG_meth_percent_site.tsv
+    python $SCRIPTS/content_modifiers/change_header.py \
+        -i $RESULT/pre_CpG_meth_percent_site.tsv -o $RESULT/CpG_meth_percent_site.tsv
     rm $RESULT/pre_CpG_meth_percent_site.tsv
 }
 
@@ -324,17 +365,28 @@ main() {
 
     # download FASTQ files if BASESPACE var not empty (; if --basespace arg given)
     if [ ! -z $BASESPACE ]; then
-	download_FASTQ
+        download_FASTQ
     fi
 
     # BS-convert the genome if the $BS_CONVERT variable is not empty (; if --bs-convert option selected)
     if [ ! -z $BS_CONVERT ]; then
         bismark_genome_preparation --bowtie2 $REF 
+    else
+        echo "SKIPPING: bisulfite conversion of the genome" 
+    fi
+
+    # trim fastq provided the --no-trim option has not been given
+    if [ -z $TRIM ]; then
+        trim_FASTQS 
+    else 
+        echo "SKIPPING: trimming of FASTQ files"
     fi
     
     # generate bismark SAM files provided --no-sams option has not been given
     if [ -z $SAM_GENERATION ]; then
-    	generate_SAMS
+    	generate_SAMS 
+    else
+        echo "SKIPPING: generation of SAM files"
     fi
     
     # extract the methylation call for every C and write out its position. Report will allow you to work out methylation % in CpG, CHG & CHG contexts. 
