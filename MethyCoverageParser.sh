@@ -381,12 +381,6 @@ main() {
         download_FASTQ
     fi
 
-
-    
-    exit 1
-
-
-
     # BS-convert the genome if the $BS_CONVERT variable is not empty (; if --bs-convert option selected)
     if [ ! -z $BS_CONVERT ]; then
         bismark_genome_preparation --bowtie2 $REF 

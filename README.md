@@ -1,5 +1,5 @@
 # MethyCoverageParser
-Produces coverage and methylation % data from FASTQ files derived from bisulfite converted targeted Illumina sequencing.
+Produces coverage and methylation percentage data from FASTQ files derived from bisulfite converted targeted Illumina sequencing.
 
 Pipeline created by Danny Laurent and Duncan Sproul. <br />
 CLI interface, documentation, organisation and wrapper bash script created by David Ross
@@ -27,7 +27,7 @@ cd MethyCoverageParser/
 
 
 ## Requirements
-The script has been only been tested with bash version 4.2.46. The below programs must be in your PATH before running the script (confirmed to function correctly with the referenced versions):
+The script has only been tested with bash version 4.2.46. The below programs must be in your PATH before running the script (confirmed to function correctly with the referenced versions):
 ```
 python2
 python3 
@@ -44,9 +44,9 @@ bedtools v2.26.0
 
 ## Options
 ### Required
-```--fastq``` The directory containing FASTQ files or sub-directories in containing FASTQ files.
-```--dir``` The directory in which the data processing and generation will take place.
-```--ref``` The directory containing the genome FASTA file. 
+```--fastq``` The directory containing FASTQ files or sub-directories in containing FASTQ files. <br />
+```--dir``` The directory in which the data processing and generation will take place. <br />
+```--ref``` The directory containing the genome FASTA file. <br />
 ```--amplicon``` The required amplicon BED file used to generate coverage file. This is expected to have a fourth column detailing whether the amplicon was designed to the original top strand (OT) or original bottom strand (OB). If this is not present then a ```CpG_divided_coverage.tsv``` file cannot be created. Formating of amplicon BED file should be as below:
 ```
 chr4    657827    657996    OB 
@@ -54,17 +54,17 @@ chr7    987654    987901    OT
 ```
 
 ### Optional
-```--basespace``` BaseSpace project name to download the FASTQ files from. See the Downloading FASTQ Files section below for further information in utilising this feature.
+```--basespace``` BaseSpace project name to download the FASTQ files from. See the Downloading FASTQ Files section below for further information in utilising this feature. <br />
 ```--cpg``` The CpG site file to filter specific positions for generating ```CpG_meth_percent_site.tsv```. This file should contain a probe name in the first field and strand orientation in the last field with a header present in the first row. If the file does not fulfill these criteria then the ```CpG_meth_percent_site.tsv``` file cannot be generated. Formatting of the CpG site file should be as below: 
 ```
 probe    chrom    pos    strand
 GB788    chr3    73837    -
 GB987    chr9    98654    +
 ```
-```--bs-convert``` Bisulfite convert the genome FASTA file. This only has to be performed once.
-```--fluidigm``` Trim the CS1rc and CS2rc Fluidigm sequencing primers, oppossed to Illuminas, from your FASTQ files.
-```--no-sams``` do not generate SAM files
-```--no-trim``` do not trim FASTQ files
+```--bs-convert``` Bisulfite convert the genome FASTA file. This only has to be performed once. <br />
+```--fluidigm``` Trim the CS1rc and CS2rc Fluidigm sequencing primers, oppossed to Illuminas, from your FASTQ files. <br />
+```--no-sams``` do not generate SAM files. <br/>
+```--no-trim``` do not trim FASTQ files.
 
 
 
