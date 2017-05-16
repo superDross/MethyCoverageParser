@@ -4,35 +4,39 @@ version="0.01"
 
 # TODO: convert all python2 scripts to python3
 # TODO: dicts in reshapers/*.py should become OrderedDicts
-# TODO: option to add --three_prime_clip_r1 for trim_galore
+# TODO: alter DividedCoverageParser.pl so it doesn't fail when only an OT or OB file is present
 
 ### NOTES ###############################################
 # FASTQ, HUMAN_GENOME, AMPLICON_BED and CpG_SITES have to be copied over to scratch first
+#
+# The below commands are useful for identifying unanticipated outputs within this scripts STANDOUT & STANDERR
+#        grep "ERROR\|SUCCESS\|NOTE\|SKIPPING" <log-files>
 #########################################################
 
 
 ### HELP PAGE ###########################################
 if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
 	cat <<- EOF
-		usage:  [-h] [-f DIR] [-d DIR] [-r DIR] [-a FILE] [-c FILE] [-o DIR] [-s STRING]
+	usage:  [-h] [-f DIR] [-d DIR] [-r DIR] [-a FILE] [-c FILE] [-o DIR] [-s STRING]
 
-		Calculate the total coverage, CpG coverage & CpG coverage per given CpG site from 
-		a given set of FASTQ files over a set of given amplicons
+	Calculate the total coverage, CpG coverage & CpG coverage per given CpG site from 
+	a given set of FASTQ files over a set of given amplicons
 
-		required arguments:
-		-f, --fastq     path containing dirs with fastq files
-		-d, --dir       directory in which data generation will take place (SCRATCH)
-		-r, --ref       directory containing BS-converted genome
-		-a, --amplicon  BED file containing amplicon start and end coordinates
-		optional arguments:
-		-b, --basespace basespace project name to download FASTQ files from
-		-c, --cpg       file containing CpG sites of interest in BED like format    
-		options:
-		--bs-convert    BS-convert the given reference genome
-		--no-sams       do not generate SAM files
-        --no-trim       do not trim FASTQ files
+	required arguments:
+	-f, --fastq     path containing dirs with fastq files
+	-d, --dir       directory in which data generation will take place (SCRATCH)
+	-r, --ref       directory containing BS-converted genome
+	-a, --amplicon  BED file containing amplicon start and end coordinates
+	optional arguments:
+	-b, --basespace basespace project name to download FASTQ files from
+	-c, --cpg       file containing CpG sites of interest in BED like format    
+	options:
+	--bs-convert    BS-convert the given reference genome
+	--fluidigm      trim the fluidigm CS1rc & CS2rc adapters from FASTQs
+	--no-sams       do not generate SAM files
+	--no-trim       do not trim FASTQ files
 	EOF
-    exit 0
+	exit 0
 fi
 #########################################################
 
@@ -59,6 +63,7 @@ while [[ $# -gt 0 ]]; do
       --bs-convert) BS_CONVERT="YES" ;;
       --no-sams) SAM_GENERATION="NO" ;;
       --no-trim) TRIM="NO" ;;
+      --fluidigm) FLUIDIGM="YES" ;;
       *) echo -e "Unknown argument:\t$arg"; exit 0 ;;
     esac
 
@@ -115,7 +120,7 @@ download_FASTQ() {
     # check config file exist
     if [ ! -f $HOME/.basespacepy.cfg ]; then
        >&2 echo "ERROR: $HOME/.basespacepy.cfg does not exist," \
-                "this must be present to download FASTQ files from basespace"
+                "this must be present to download FASTQ files from BaseSpace"
        exit 1
     fi 
     
@@ -123,7 +128,7 @@ download_FASTQ() {
     KEY=`awk 'FNR == 3 {print $3}' ~/.basespacepy.cfg`
     SECRET=`awk 'FNR == 4 {print $3}' ~/.basespacepy.cfg`
     TOKEN=`awk 'FNR == 5 {print $3}' ~/.basespacepy.cfg`
-    
+ 
     python2 $SCRIPTS/basespace/samples2files.py \
       -K $KEY -S $SECRET -A $TOKEN -y $BASESPACE -o $FASTQ_DIR
 }
@@ -132,10 +137,11 @@ download_FASTQ() {
 ##############################################
 # trim_FASTQS()
 #
-# Trim the CS1rc and CS2rc adapters from the 
+# Trim the CS1rc and CS2rc or Ilumina adapters from the 
 # FASTQ files.
 #
 # Globals:
+#   FASTQ_DIR = dir containg FASTQ files
 #   SCRATCH = dir used to generate files
 #   FASTQC = dir to contain fastqc reports
 # 
@@ -163,17 +169,23 @@ trim_FASTQS() {
         exit 1
     fi
 
-    # -n2 works under the assumption that the FATSQS are sorted in read pairs
-    # adapter and adapter2 are the CS1rc and CS2rc from fluidigm
-    echo $FASTQS | xargs -n2 trim_galore --paired \
-    				     --path_to_cutadapt /exports/eddie3_homes_local/dross11/.local/bin/cutadapt \
-    				     --output_dir $SCRATCH/fastq_trimmed/ \
-    				     --adapter AGACCAAGTCTCTGCTACCGTA \
-    				     --adapter2 TGTAGAACCATGTCGTCAGTGT \
-    				     --trim1 
-        
-    fastqc $SCRATCH/fastq_trimmed/*val*gz -o $FASTQC
- 
+    
+    if [ ! -z $FLUIDIGM ]; then
+        # -n2 works under the assumption that the FATSQS are sorted in read pairs
+        echo "NOTE: Trimming Fluidigm CS1rc and CS2rc sequencing primers from FASTQ files"
+        echo $FASTQS | xargs -n2 trim_galore --paired \
+                             --output_dir $SCRATCH/fastq_trimmed/ \
+                             --adapter AGACCAAGTCTCTGCTACCGTA \
+                             --adapter2 TGTAGAACCATGTCGTCAGTGT \
+                             --trim1 \
+                             --fastqc_args "--outdir $FASTQC"
+    else
+        echo "NOTE: Trimming Illumina sequencing primers from FASTQ files"
+        echo $FASTQS | xargs -n2 trim_galore --paired \
+                                 --output_dir $SCRATCH/fastq_trimmed/ \
+                                 --trim1 \
+                                 --fastqc_args "--outdir $FASTQC"
+    fi
 }
 
 
@@ -195,7 +207,7 @@ trim_FASTQS() {
 
 generate_SAMS() {
    
-    # generate list of post-trimmed Read 1 and Read 2 fastq files (not sure if adding the comma is neccessary.
+    # generate list of post-trimmed Read 1 and Read 2 fastq files
     R1=`find $SCRATCH/fastq_trimmed/ -iregex '.*\(_R1_*val.*\|val_1.\)\(fq.gz\|fastq.gz\|fq\|fastq\|sanfastq\|sanfastq.gz\)' |  sort | xargs | sed 's/ /,/g'`
     R2=`find $SCRATCH/fastq_trimmed/ -iregex '.*\(_R2_*val.*\|val_2.\)\(fq.gz\|fastq.gz\|fq\|fastq\|sanfastq\|sanfastq.gz\)' | sort | xargs | sed 's/ /,/g'`
     
@@ -246,6 +258,7 @@ Coverage() {
     python $SCRIPTS/content_modifiers/change_header.py \
         -i $RESULT/pre_Coverage.tsv -o $RESULT/Coverage.tsv
     rm $RESULT/pre_Coverage.tsv
+
 }
 
 
@@ -367,6 +380,12 @@ main() {
     if [ ! -z $BASESPACE ]; then
         download_FASTQ
     fi
+
+
+    
+    exit 1
+
+
 
     # BS-convert the genome if the $BS_CONVERT variable is not empty (; if --bs-convert option selected)
     if [ ! -z $BS_CONVERT ]; then

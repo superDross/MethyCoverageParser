@@ -41,7 +41,7 @@ def position_dict(cov_files, minCov=1000):
                 # filter for those that pass minCov
                 if cov < minCov:
                     continue
-
+                
                 # produce subdict
                 sample_dict = {}
                 sample_dict[sample] = meth_percent

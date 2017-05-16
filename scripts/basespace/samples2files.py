@@ -1,3 +1,6 @@
+import sys
+import traceback
+
 # TODO: tidy up this code
 
 ################################################################################
@@ -172,16 +175,43 @@ if __name__ == '__main__':
         parser.print_help()
         sys.exit(1)
 
-    # dangerous infinite loop; hackiest of hacks
-    try:
-        Samples.download(options.clientKey, options.clientSecret, options.accessToken, \
-                sampleId=options.sampleId, projectId=options.projectId, \
-                sampleName=options.sampleName, projectName=options.projectName, \
-                outputDirectory=options.outputDirectory, createBsDir=options.createBsDir)
-    except SSLError:
-	print("ERROR: time out SSLError, trying again...")
-        Samples.download(options.clientKey, options.clientSecret, options.accessToken, \
-                sampleId=options.sampleId, projectId=options.projectId, \
-                sampleName=options.sampleName, projectName=options.projectName, \
-                outputDirectory=options.outputDirectory, createBsDir=options.createBsDir)
+    ## dangerous infinite loop; hackiest of hacks
+    #try:
+    #    print("NOTE: downloading FASTQ files from BaseSpace project")
+    #    Samples.download(options.clientKey, options.clientSecret, options.accessToken, \
+    #            sampleId=options.sampleId, projectId=options.projectId, \
+    #            sampleName=options.sampleName, projectName=options.projectName, \
+    #            outputDirectory=options.outputDirectory, createBsDir=options.createBsDir)
+    #except SSLError:
+    #    print("ERROR: time out SSLError, trying again...")
+    #    Samples.download(options.clientKey, options.clientSecret, options.accessToken, \
+    #            sampleId=options.sampleId, projectId=options.projectId, \
+    #            sampleName=options.sampleName, projectName=options.projectName, \
+    #            outputDirectory=options.outputDirectory, createBsDir=options.createBsDir)
+
+
+    def download_now(count=0):
+        ''' Download parsed project from BaseSpace. Desired number of SSLerror attempts 
+            can't be parsed to basespace=python-sdk, hence the below recursive loop. This 
+            allows ten attempts to connect to BaseSpace before exiting.
+        '''
+        try:
+            print("NOTE: downloading FASTQ files from BaseSpace project. Number of times attempted: "+str(count))
+            Samples.download(options.clientKey, options.clientSecret, options.accessToken, \
+                    sampleId=options.sampleId, projectId=options.projectId, \
+                    sampleName=options.sampleName, projectName=options.projectName, \
+                    outputDirectory=options.outputDirectory, createBsDir=options.createBsDir)
+        except:
+            if count == 10:
+                print("ERROR: attempted to download FASTQ files from BaseSpace project 10 times. Now exiting process.")
+                sys.exit()
+            else:
+                tb = traceback.format_exc()
+                error = tb.split("\n")[2]
+                print(error)
+                count += 1
+                download_now(count)
+
+
+    download_now() 
 
