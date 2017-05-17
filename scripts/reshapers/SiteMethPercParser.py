@@ -36,21 +36,20 @@ def position_dict(cov_files, minCov=1000):
                 # chr6    77462129    77462129    39.9770904925544    349    524
                 chrom, pos_start, pos_end, meth_percent, c_cov, tri_cov = line.rstrip("\n").split("\t")
                 chr_pos = str(chrom + "_" + pos_start)
-                cov = int(c_cov+tri_cov)
+                cov = int(c_cov)+int(tri_cov)
 
                 # filter for those that pass minCov
-                if cov < minCov:
-                    continue
-                
-                # produce subdict
-                sample_dict = {}
-                sample_dict[sample] = meth_percent
-                
-                # update top level dict with subdict as an item
-                if chr_pos in pos_meth_dict:
-                    pos_meth_dict[chr_pos].update(sample_dict)
-                else: 
-                    pos_meth_dict[chr_pos]= sample_dict
+                if cov > minCov:
+                      
+                    # produce subdict
+                    sample_dict = {}
+                    sample_dict[sample] = meth_percent
+                    
+                    # update top level dict with subdict as an item
+                    if chr_pos in pos_meth_dict:
+                        pos_meth_dict[chr_pos].update(sample_dict)
+                    else: 
+                        pos_meth_dict[chr_pos]= sample_dict
         cov_file.close()
 
     return pos_meth_dict
