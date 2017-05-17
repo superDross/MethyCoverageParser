@@ -326,6 +326,7 @@ CpG_divided_cov() {
 #   SCRIPTS = dir containing all scripts
 #   RESULT = dir to place returned file
 #   SCRATCH = dir used to generate files
+#   AMPLICON = bed file containing amplicon co-ordinates plus OT/OB status in a fourth column
 #
 # Returns:
 #   a tsv containing CpG methylation percentage
@@ -348,11 +349,11 @@ CpG_meth_cov_site() {
    
     # determine whther to filter for specific CpG sites or not 
     if [ -z $CPG ]; then 
-        python3 $SCRIPTS/reshapers/SiteMethPercParser.py \
+        python3 $SCRIPTS/reshapers/SiteMethPercParser.py -a $AMPLICON \
             -b ${SCRATCH}/BME_bedgraph/ -o $RESULT/pre_CpG_meth_percent_site.tsv
     else
         # CpG_sites.csv contains CpG sites which are found to be highly differntailly methylated between tumour and leukocytes
-        python3 $SCRIPTS/reshapers/SiteMethPercParser.py \
+        python3 $SCRIPTS/reshapers/SiteMethPercParser.py -a $AMPLICON \
             -b ${SCRATCH}/BME_bedgraph/ -p $CPG -o $RESULT/pre_CpG_meth_percent_site.tsv
     fi
 
