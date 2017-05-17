@@ -36,7 +36,7 @@ def position_dict(cov_files, minCov=1000):
                 # chr6    77462129    77462129    39.9770904925544    349    524
                 chrom, pos_start, pos_end, meth_percent, c_cov, tri_cov = line.rstrip("\n").split("\t")
                 chr_pos = str(chrom + "_" + pos_start)
-                cov = int(c_cov+tri_cov)
+                cov = int(c_cov)+int(tri_cov)
 
                 # filter for those that pass minCov
                 if cov < minCov:
