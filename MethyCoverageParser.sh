@@ -2,6 +2,7 @@
 # created by David Ross
 version="0.01"
 
+# TODO: feed in Amlicon.BED into SiteMethPercParser so whether the CpG site derives from primers designed to OB or OT is stated
 # TODO: convert all python2 scripts to python3
 # TODO: dicts in reshapers/*.py should become OrderedDicts
 # TODO: alter DividedCoverageParser.pl so it doesn't fail when only an OT or OB file is present
