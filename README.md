@@ -11,7 +11,7 @@ CLI interface, documentation, organisation and wrapper bash script created by Da
 A command line tool which uses [Bismark](https://www.bioinformatics.babraham.ac.uk/projects/bismark/) and a selection of parsing scripts to manipulate FASTQ files derived from bisulfite-converted targeted-sequencing to produce four files: <br />
 - mapping_efficiency_summary.txt - percentage of sequences with a unique best alignment for each sample <br />
 - Coverage.tsv - details coverage across given amplicon ranges for every parsed FASTQ file <br />
-- CpG_divided_coverage.tsv - contains methylated/unmethylated CpG coverage across each amplicon for every parsed FASTQ file<br />
+- CpG_divided_coverage.tsv - The total methylated and unmethylated coverage for all CpG sites in every amplicon <br />
 - CpG_meth_percent_site.tsv - details CpG methylation percentages for all CpG sites within the amplicons of all parsed FASTQ files. The CpG sites written to file can be filtered using the --cpg argument.
 
 Reading the [Bismark documentation](https://www.bioinformatics.babraham.ac.uk/projects/bismark/Bismark_User_Guide.pdf) is **highly recommended** prior to using this script.
