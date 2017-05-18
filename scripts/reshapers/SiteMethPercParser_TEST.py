@@ -4,32 +4,21 @@ import argparse
 import os
 
 
-def methylation_percentage(BME_cov_dir):
-    cov_files = [BME_cov_dir+"/"+f for f in os.listdir(BME_cov_dir) 
-                 if f.endswith('cov') and not f.endswith('meth.txt')]
-    cpg = CpG_dataframe(cov_files, percentage=True)
-    return cpg
-
-
-def methylation_coverage(BME_cov_dir):
-    meth_files = [BME_cov_dir+"/"+f for f in os.listdir(BME_cov_dir) 
-                  if f.endswith('cov') and f.endswith('_meth.txt')]
-    cpg_meth = CpG_dataframe(meth_files, percentage=False)
-
-    unmeth_files = [BME_cov_dir+"/"+f for f in os.listdir(BME_cov_dir) 
-                    if f.endswith('cov') and f.endswith('_unmeth.txt')]
-    cpg_unmeth = CpG_dataframe(unmeth_files, percentage=False)
-
-
-def CpG_dataframe(cov_files, percentage=True):
+def CpG_methylation(cov_files, cpg_sites=None):
     ''' Get the methylation percentages from all CpG sites with
         a coverage over 1000 from all BME coverage files in a 
         given directory and output into a Pandas DataFrame.
     
     Args:
         BME_cov_dir: dir containing BME coverage files
+        cpg_sites: positions to filter the DataFrame for
     
-       '''
+    Notes:
+        cpg_sites should be in this format, with header:
+        
+            probe   chrom   pos   strand
+            cg167   chr12   1728    +
+    '''
     df_store = []
 
     for cov_file in cov_files:
@@ -37,15 +26,9 @@ def CpG_dataframe(cov_files, percentage=True):
         df = pd.read_csv(cov_file, sep="\t", header=None)
         df.columns = ['Chromosome', 'Position', 'pos_end', 'meth_percent', 'c_cov', 'tri_cov']
         df['coverage'] = df['c_cov'] + df['tri_cov']
-
-        if percentage:
-            df = df[df['coverage'] > 1000]
-            field = 'meth_percent'
-        else:
-            field = 'c_cov'
-
-        df = df[['Chromosome', 'Position', field]]
-        df.rename(columns={field: sam}, inplace=True)
+        df = df[df['coverage'] > 1000]
+        df = df[['Chromosome', 'Position', 'meth_percent']]
+        df.rename(columns={'meth_percent': sam}, inplace=True)
         # setting index and transposition is required for proper concatanation
         df_store.append(df.set_index(['Chromosome', 'Position']).T)
 
@@ -59,7 +42,7 @@ def insert_strand(cpg, amplicon):
         column.
         
     Args: 
-        cpg: CpG_dataframe() output
+        cpg: CpG_methylation() output
         amplicon: BED like file describing primer start , end pos 
                   and strand
     
@@ -90,23 +73,14 @@ def determine_strand(x, amplicon):
 
             
             
-def main(BME_cov_dir, out, amplicon=None, cpg_sites=None, methylation=True, coverage=False):
-    ''' 
-    Notes:
-        cpg_sites should be in this format, with header:
-        
-            probe   chrom   pos   strand
-            cg167   chr12   1728    +
+def main(BME_cov_dir, out, amplicon=None, cpg_sites=None):
+    '''
     '''
     # create a df of all cov files methylation percentages and 
-    if methylation:
-        cpg = methylation_percentage(BME_cov_dir)
-    if coverage:
-        cpg = methylation_coverage(BME_cov_dir)
+    cov_files = [BME_cov_dir+"/"+f for f in os.listdir(BME_cov_dir) if f.endswith('cov')]
+    cpg = CpG_methylation(cov_files, cpg_sites)
     if amplicon:
         cpg = insert_strand(cpg, amplicon)
-    if cpg_sites:
-        pass
     
     cpg.to_csv(out, na_rep='NA')
     return cpg
@@ -118,19 +92,13 @@ def get_parser():
     parser.add_argument('-o', '--output', help='output file name')
     parser.add_argument('-a', '--amplicon', help='amplicon bed file containing primer positions and strand')
     parser.add_argument('-p', '--positions', help='file containing positions of interest')
-    parser.add_argument('-m', '--methylation', action='store_true', default=True)
-    parser.add_argument('-c', '--coverage', action='store_true')
-
     return parser
 
 
 def cli():
     parser = get_parser()
     args = vars(parser.parse_args())
-    if args['methylation'] and args['coverage']:
-        raise IOError("--methylation and --coverage cannot be parsed together. Parse only one flag")
-    main(args['bedgraph_dir'], args['output'], args['amplicon'], 
-         args['positions'], args['methylation'], args['coverage'])
+    main(args['bedgraph_dir'], args['output'], args['amplicon'], args['positions'])
     
     
 if __name__ == '__main__':
