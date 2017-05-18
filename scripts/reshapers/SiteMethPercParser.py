@@ -4,22 +4,6 @@ import argparse
 import os
 
 
-def methylation_percentage(BME_cov_dir):
-    cov_files = [BME_cov_dir+"/"+f for f in os.listdir(BME_cov_dir) 
-                 if f.endswith('cov') and not f.endswith('meth.txt')]
-    cpg = CpG_dataframe(cov_files, percentage=True)
-    return cpg
-
-
-def methylation_coverage(BME_cov_dir):
-    meth_files = [BME_cov_dir+"/"+f for f in os.listdir(BME_cov_dir) 
-                  if f.endswith('cov') and f.endswith('_meth.txt')]
-    cpg_meth = CpG_dataframe(meth_files, percentage=False)
-
-    unmeth_files = [BME_cov_dir+"/"+f for f in os.listdir(BME_cov_dir) 
-                    if f.endswith('cov') and f.endswith('_unmeth.txt')]
-    cpg_unmeth = CpG_dataframe(unmeth_files, percentage=False)
-
 
 def CpG_dataframe(cov_files, percentage=True):
     ''' Get the methylation percentages from all CpG sites with
@@ -35,14 +19,14 @@ def CpG_dataframe(cov_files, percentage=True):
     for cov_file in cov_files:
         sam = cov_file.split("/")[-1].split(".")[0]
         df = pd.read_csv(cov_file, sep="\t", header=None)
-        df.columns = ['Chromosome', 'Position', 'pos_end', 'meth_percent', 'c_cov', 'tri_cov']
-        df['coverage'] = df['c_cov'] + df['tri_cov']
+        df.columns = ['Chromosome', 'Position', 'pos_end', 'meth_percent', 'meth_cov', 'unmeth_cov']
+        df['coverage'] = df['meth_cov'] + df['unmeth_cov']
 
         if percentage:
             df = df[df['coverage'] > 1000]
             field = 'meth_percent'
         else:
-            field = 'c_cov'
+            field = 'meth_cov'
 
         df = df[['Chromosome', 'Position', field]]
         df.rename(columns={field: sam}, inplace=True)
@@ -100,9 +84,19 @@ def main(BME_cov_dir, out, amplicon=None, cpg_sites=None, methylation=True, cove
     '''
     # create a df of all cov files methylation percentages and 
     if methylation:
-        cpg = methylation_percentage(BME_cov_dir)
+        cov_files = [BME_cov_dir+"/"+f for f in os.listdir(BME_cov_dir) 
+                     if f.endswith('cov') and not f.endswith('meth.txt')]
+        cpg = CpG_dataframe(cov_files, percentage=True)
+
     if coverage:
-        cpg = methylation_coverage(BME_cov_dir)
+        # input the same coverage files, but determine which sites are from an amplicon and add all these sites (that deive from the same amplicon) meth_coverage together and unmeth_coverage together. The output should look like:
+           # chrom   start   end   strand   meth_status   SAM1
+           #  chr7   6278    6728   OB      meth          50245
+
+        # this will give the same answer as CpG_divided_coverage.tsv
+        pass
+
+
     if amplicon:
         cpg = insert_strand(cpg, amplicon)
     if cpg_sites:
