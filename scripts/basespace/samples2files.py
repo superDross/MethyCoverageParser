@@ -106,13 +106,13 @@ class Samples:
                 if 0 < len(sampleToFiles):
                     break
         numFiles = sum([len(sampleToFiles[sampleId]) for sampleId in sampleToFiles])
-        print("NOTE: will download files from %d ." % numFiles)
+        print("will download files from %d ." % numFiles)
         i = 0
         for sampleId in sampleToFiles:
             for sampleFile in sampleToFiles[sampleId]:
-                print('NOTE: Downloading (%d/%d): %s' % ((i+1), numFiles, str(sampleFile)))
-                print("NOTE: BaseSpace File Path: %s" % sampleFile.Path)
-                print("NOTE: Sample Id: %s" % sampleId)
+                print('Downloading (%d/%d): %s' % ((i+1), numFiles, str(sampleFile)))
+                print("BaseSpace File Path: %s" % sampleFile.Path)
+                print("Sample Id: %s" % sampleId)
                 if not options.dryRun:
                     if createBsDir:
                         sampleOutputDirectory = os.path.join(outputDirectory, sampleId)
@@ -120,7 +120,7 @@ class Samples:
                         sampleOutputDirectory = outputDirectory
                     sampleFile.downloadFile(myAPI, sampleOutputDirectory, createBsDir=createBsDir)
                 i = i + 1
-        print("NOTE: FASTQ file downloading complete.")
+        print("FASTQ file downloading complete.")
 
 
 if __name__ == '__main__':

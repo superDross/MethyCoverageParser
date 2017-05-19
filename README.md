@@ -1,4 +1,4 @@
-# MethyCoverageParser v0.02
+# MethyCoverageParser
 Produces coverage and methylation percentage data from FASTQ files derived from bisulfite converted targeted Illumina sequencing.
 
 Pipeline created by Danny Laurent and Duncan Sproul. <br />
@@ -10,7 +10,7 @@ CLI interface, documentation, organisation and wrapper bash script created by Da
 ### Summary
 A command line tool which uses [Bismark](https://www.bioinformatics.babraham.ac.uk/projects/bismark/) and a selection of parsing scripts to manipulate FASTQ files derived from bisulfite-converted targeted-sequencing to produce four files: <br />
 - mapping_efficiency_summary.txt - percentage of sequences which uniquely align to the BS-genome <br />
-- Coverage.tsv - details amplicon coverage for each amplicon <br />
+- Coverage.tsv - details amplicon coverage <br />
 - CpG_divided_coverage.tsv - the total methylated and unmethylated coverage for all CpG sites covering each sequenced amplicon <br />
 - CpG_meth_percent_site.tsv - details CpG methylation percentages for all sequenced CpG sites. <br />
 
