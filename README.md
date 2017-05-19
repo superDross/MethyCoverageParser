@@ -11,7 +11,7 @@ CLI interface, documentation, organisation and wrapper bash script created by Da
 A command line tool which uses [Bismark](https://www.bioinformatics.babraham.ac.uk/projects/bismark/) and a selection of parsing scripts to manipulate FASTQ files derived from bisulfite-converted targeted-sequencing to produce four files: <br />
 - mapping_efficiency_summary.txt - percentage of sequences with a unique best alignment for each sample <br />
 - Coverage.tsv - details coverage across given amplicon ranges for every parsed FASTQ file <br />
-- CpG_divided_coverage.tsv - contains coverage split into methylated/unmethylated/OT/OB for every read containing a CpG in the given FASTQ files <br />
+- CpG_divided_coverage.tsv - The total methylated and unmethylated coverage for all CpG sites in every amplicon <br />
 - CpG_meth_percent_site.tsv - details CpG methylation percentages for all CpG sites within the amplicons of all parsed FASTQ files. The CpG sites written to file can be filtered using the --cpg argument.
 
 Reading the [Bismark documentation](https://www.bioinformatics.babraham.ac.uk/projects/bismark/Bismark_User_Guide.pdf) is **highly recommended** prior to using this script.
@@ -35,7 +35,7 @@ The Sam2Bed script iterates through the SAM files and outputs the positions of p
 Bismark Methylation Extractor will extract all CpG context cytosines from the SAM files and export their methylation status into two seperate CpG-site files; one for the positive strand (OT) and another for the negative strand (OB).
 
 #### IV - CpG Sites Coverage 
-Both the OT and OB CpG-site files are split by methylation status, producing CpG-site files for; OT-methylated positions, OT-unmthylated positions, OB-methylated positions & OB-unmethylated positions. Bedtools Coverage then creates BED Coverage files for each of the four split CpG-site files using the aforementioned amplicon bed file. Finally, DivededCoverageParser extracts all the BED Coverage data and reformats it into a dataframe like format exported as *CpG_divided_coverage.tsv*. **Why is the amplicon bed file needed here?**
+Both the OT and OB CpG-site files are split by methylation status, producing CpG-site files for; OT-methylated positions, OT-unmthylated positions, OB-methylated positions & OB-unmethylated positions. Bedtools Coverage then creates BED Coverage files for each of the four split CpG-site files using the aforementioned amplicon bed file. Finally, DivededCoverageParser extracts all the BED Coverage data and reformats it into a dataframe like format exported as *CpG_divided_coverage.tsv*. This file details the methylated and unmethylated CpG coverage across each amplicon; the coverage of each methylated/unmethylated CpG site that lies within an amplicon is added together. 
 
 #### V - CpG Methylation Percentage
 The CpG-Site files generated in step III are paired and parsed into Bismark2Bedgraph to produce Bedgraph Coverage files detailing; cytosine coverage, non-cytosine coverage and the percent methylated at said sites. SiteMethPercParser extracts all the methylation percentage data from the Bedgraph Coverage files, filters for sites with a minimum of 1000 coverage and reformats them into a dataframe like format exported as *CpG_meth_percent_site.tsv*.
