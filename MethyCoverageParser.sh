@@ -1,6 +1,6 @@
 #!/bin/bash
 # created by David Ross
-version="0.01"
+version="0.02"
 
 # TODO: dicts in reshapers/*.py should become OrderedDicts
 
@@ -240,7 +240,7 @@ generate_SAMS() {
 
 Coverage() {
 	# determines which reads are proper pairs (judging from the bitwise flags..) and parse the read start and end positions into a BED file
-    find $SAMS -name *sam | xargs -I {} python3 $SCRIPTS/sam_parsers/Sam2Bed.py {} {}.bed
+    find $SAMS -name *sam | xargs -I {} python $SCRIPTS/sam_parsers/Sam2Bed.py {} {}.bed
     find $SAMS -name *bed -print0 | xargs -r0 mv -t $BEDS
     
     # get the coverage per amplicon for the given intervals.
@@ -251,12 +251,12 @@ Coverage() {
     
     # give the dir containing the coverage text files
     python $SCRIPTS/reshapers/coverage_parser.py \
-        -d $BEDS/coverage/ -o $RESULT/pre_Coverage.tsv
+        -d $BEDS/coverage/ -o $RESULT/pre_coverage.tsv
 
     # alter column names in header to sample names
     python $SCRIPTS/content_modifiers/change_header.py \
-        -i $RESULT/pre_Coverage.tsv -o $RESULT/Coverage.tsv
-    rm $RESULT/pre_Coverage.tsv
+        -i $RESULT/pre_coverage.tsv -o $RESULT/coverage.tsv
+    rm $RESULT/pre_coverage.tsv
 
 }
 
@@ -287,14 +287,13 @@ Coverage() {
 
 CpG_amplicon_cov() {
 
-    python3 $SCRIPTS/reshapers/cpg_amplicon_coverage.py -a $AMPLICON \
-        -b ${SCRATCH}/bedgraph/ -o $RESULT/pre_CpG_divided_coverage.tsv
+    python $SCRIPTS/reshapers/cpg_amplicon_coverage.py -a $AMPLICON \
+        -b ${SCRATCH}/bedgraph/ -o $RESULT/pre_CpG_amplicon_coverage.tsv
 
     # alter the column names to the sample it refers to 
     python $SCRIPTS/content_modifiers/change_header.py \
-        -i $RESULT/pre_CpG_divided_coverage.tsv -o $RESULT/CpG_divided_coverage.tsv
-    rm $RESULT/pre_CpG_divided_coverage.tsv
-   
+        -i $RESULT/pre_CpG_amplicon_coverage.tsv -o $RESULT/CpG_amplicon_coverage.tsv
+    rm $RESULT/pre_CpG_amplicon_coverage.tsv
 
 }
 
@@ -324,19 +323,19 @@ CpG_meth_perc() {
   
     # CpG methylation percentage for all CpG sites within given amplicon ranges. Determine whther to filter for specific CpG sites or not 
     if [ -z $CPG ]; then 
-        python3 $SCRIPTS/reshapers/cpg_meth_percent.py -a $AMPLICON \
-            -b ${SCRATCH}/bedgraph/ -o $RESULT/pre_CpG_meth_percent_site.tsv
+        python $SCRIPTS/reshapers/cpg_meth_percent.py -a $AMPLICON \
+            -b ${SCRATCH}/bedgraph/ -o $RESULT/pre_CpG_meth_percent.tsv
     else
         # CpG_sites.csv contains CpG sites which are found to be highly differntailly methylated between tumour and leukocytes
-        python3 $SCRIPTS/reshapers/cpg_meth_percent.py -a $AMPLICON \
-            -b ${SCRATCH}/bedgraph/ -p $CPG -o $RESULT/pre_CpG_meth_percent_site.tsv
+        python $SCRIPTS/reshapers/cpg_meth_percent.py -a $AMPLICON \
+            -b ${SCRATCH}/bedgraph/ -p $CPG -o $RESULT/pre_CpG_meth_percent.tsv
     fi
 
 
     # alter column names in header to sample names
-    python3 $SCRIPTS/content_modifiers/change_header.py \
-        -i $RESULT/pre_CpG_meth_percent_site.tsv -o $RESULT/CpG_meth_percent_site.tsv
-    rm $RESULT/pre_CpG_meth_percent_site.tsv
+    python $SCRIPTS/content_modifiers/change_header.py \
+        -i $RESULT/pre_CpG_meth_percent.tsv -o $RESULT/CpG_meth_percent.tsv
+    rm $RESULT/pre_CpG_meth_percent.tsv
 
 
 }

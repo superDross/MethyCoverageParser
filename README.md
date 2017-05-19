@@ -1,4 +1,4 @@
-# MethyCoverageParser
+# MethyCoverageParser v0.02
 Produces coverage and methylation percentage data from FASTQ files derived from bisulfite converted targeted Illumina sequencing.
 
 Pipeline created by Danny Laurent and Duncan Sproul. <br />
@@ -9,10 +9,10 @@ CLI interface, documentation, organisation and wrapper bash script created by Da
 ## Description
 ### Summary
 A command line tool which uses [Bismark](https://www.bioinformatics.babraham.ac.uk/projects/bismark/) and a selection of parsing scripts to manipulate FASTQ files derived from bisulfite-converted targeted-sequencing to produce four files: <br />
-- mapping_efficiency_summary.txt - percentage of sequences with a unique best alignment for each sample <br />
-- Coverage.tsv - details coverage across given amplicon ranges for every parsed FASTQ file <br />
-- CpG_divided_coverage.tsv - The total methylated and unmethylated coverage for all CpG sites in every amplicon <br />
-- CpG_meth_percent_site.tsv - details CpG methylation percentages for all CpG sites within the amplicons of all parsed FASTQ files. The CpG sites written to file can be filtered using the --cpg argument.
+- mapping_efficiency_summary.txt - percentage of sequences which uniquely align to the BS-genome <br />
+- Coverage.tsv - details amplicon coverage for each amplicon <br />
+- CpG_divided_coverage.tsv - the total methylated and unmethylated coverage for all CpG sites covering each sequenced amplicon <br />
+- CpG_meth_percent_site.tsv - details CpG methylation percentages for all sequenced CpG sites. <br />
 
 Reading the [Bismark documentation](https://www.bioinformatics.babraham.ac.uk/projects/bismark/Bismark_User_Guide.pdf) is **highly recommended** prior to using this script.
 
@@ -22,23 +22,23 @@ Reading the [Bismark documentation](https://www.bioinformatics.babraham.ac.uk/pr
 ![](docs/MethyCoverageParser_Image.png?raw=true)
 
 #### I - Generating SAM files
-*optional*: The FASTQ files can be downloaded directly from BaseSpace using```--basespace``` option and/or the reference genome can be       bisulfite converted using  ```--bs-convert``` flag.
+*optional*: The FASTQ files can be downloaded directly from BaseSpace using```--basespace``` option and/or the reference genome can be bisulfite converted using  ```--bs-convert``` flag.
 
-The FASTQ files contained within the directory detailed in the ```--fastq``` option have the Fluidigm sequencing primers cut off  to produce trimmed FASTQ files. The subsequently produce FastQC files should be inspected to ensure they are of adequate quality    for alignment and the following [document](https://www.epigenesys.eu/images/stories/protocols/pdf/20120720103700_p57.pdf) can be used  to help determine this.
+The FASTQ files contained within the directory detailed in the ```--fastq``` option have the sequencing primers cut off  to produce trimmed FASTQ files. The subsequently produce FastQC files should be inspected to ensure they are of adequate quality    for alignment and the following [document](https://www.epigenesys.eu/images/stories/protocols/pdf/20120720103700_p57.pdf) can be used  to help determine this.
 
-Bismark aligns the trimmed FASTQ files to the bisulfite-converted genome stored in the directory detiled in the ```--ref``` option to produce [SAM files](https://samtools.github.io/hts-specs/SAMv1.pdf). A *mapping_efficiency_summary.txt* file is also       produced and details the percentage of reads from a FASTQ file pair which uniquely align to the genome.
+Bismark aligns the trimmed FASTQ files to the bisulfite-converted genome stored in the directory detailed within the ```--ref``` option to produce [SAM files](https://samtools.github.io/hts-specs/SAMv1.pdf). A *mapping_efficiency_summary.txt* file is also       produced and details the percentage of reads from a FASTQ file pair which uniquely align to the genome.
 
 #### II - Coverage
-The Sam2Bed script iterates through the SAM files and outputs the positions of paired reads which map in proper pairs and outputs them into BED files. [Bedtools Coverage](http://bedtools.readthedocs.io/en/latest/content/tools/coverage.html) subsequently determines the number of times a position range described within the BED file overlaps with the amplicons described within the amplicon bed file (parsed to the ```--amplicon``` option) to produce BED Coverage files. The CoverageParser script takes the information from all BED Coverage files and reformats them into a data frame like format exported as *Coverage.tsv*.
+The Sam2Bed script iterates through the SAM files and outputs the positions of paired reads which map in proper pairs and outputs them into BED files. [Bedtools Coverage](http://bedtools.readthedocs.io/en/latest/content/tools/coverage.html) subsequently determines the number of times a position range described within the BED file overlaps with the amplicons described within the amplicon bed file (parsed to the ```--amplicon``` option) to produce BED Coverage files. The information from all BED Coverage files are grouped, reformatted and exported as *Coverage.tsv*.
 
 #### III - CpG Sites
-Bismark Methylation Extractor will extract all CpG context cytosines from the SAM files and export their methylation status into two seperate CpG-site files; one for the positive strand (OT) and another for the negative strand (OB).
+Bismark Methylation Extractor will extract all CpG context cytosines from the SAM files and export their methylation status into two seperate CpG-site files; one for the positive strand (OT) and another for the negative strand (OB). The CpG-Site files are paired and parsed into Bismark2Bedgraph to produce Bedgraph Coverage files detailing; methylation percentage, methylated count and unmethylated count for each CpG site. 
 
 #### IV - CpG Sites Coverage 
-Both the OT and OB CpG-site files are split by methylation status, producing CpG-site files for; OT-methylated positions, OT-unmthylated positions, OB-methylated positions & OB-unmethylated positions. Bedtools Coverage then creates BED Coverage files for each of the four split CpG-site files using the aforementioned amplicon bed file. Finally, DivededCoverageParser extracts all the BED Coverage data and reformats it into a dataframe like format exported as *CpG_divided_coverage.tsv*. This file details the methylated and unmethylated CpG coverage across each amplicon; the coverage of each methylated/unmethylated CpG site that lies within an amplicon is added together. 
+The CpG sites detailed in the bedgraph coverage files are grouped together by amplicon and their methylated count and unmethylated count are summarised. The resulting data is then reformatted to show total methylated and unmethylated CpG coverage across all amplicons along with which strand the amplicon was designed to and exported as *CpG_amplicon_coverage.tsv*.  
 
 #### V - CpG Methylation Percentage
-The CpG-Site files generated in step III are paired and parsed into Bismark2Bedgraph to produce Bedgraph Coverage files detailing; cytosine coverage, non-cytosine coverage and the percent methylated at said sites. SiteMethPercParser extracts all the methylation percentage data from the Bedgraph Coverage files, filters for sites with a minimum of 1000 coverage and reformats them into a dataframe like format exported as *CpG_meth_percent_site.tsv*.
+All the methylation percentage data from each CpG site are extracted from the Bedgraph Coverage files, filtered for sites with a minimum of 1000 coverage, annotated with the strand the CpG site derives from and exported as *CpG_meth_percent.tsv*.
 
 *optional*: The methylation percentage data can be further filtered for sites of interest before being exported. Simply parse a file detailing said sites of interest with the ```--cpg``` option.
 
@@ -57,9 +57,7 @@ cd MethyCoverageParser/
 ## Requirements
 The script has only been tested with bash version 4.2.46. The below programs must be in your PATH before running the script (confirmed to function correctly with the referenced versions):
 ```
-python2
-python3 
-perl5 
+python2.7
 FastQC 
 cutadapt v1.13
 TrimGalore v0.4.1
@@ -75,7 +73,7 @@ bedtools v2.26.0
 ```--fastq``` The directory containing FASTQ files or sub-directories in containing FASTQ files. <br />
 ```--dir``` The directory in which the data processing and generation will take place. <br />
 ```--ref``` The directory containing the genome FASTA file. <br />
-```--amplicon``` The required amplicon BED file used to generate coverage file. This is expected to have a fourth column detailing whether the amplicon was designed to the original top strand (OT) or original bottom strand (OB). If this is not present then a ```CpG_divided_coverage.tsv``` file cannot be created. Formating of amplicon BED file should be as below:
+```--amplicon``` An amplicon BED file describing the genomic ranges covered in the amplicon-seq libraries. This is expected to have a fourth column detailing whether the amplicon was designed to the original top strand (OT) or original bottom strand (OB). Formating of amplicon BED file should be as below:
 ```
 chr4    657827    657996    OB 
 chr7    987654    987901    OT 
@@ -83,16 +81,16 @@ chr7    987654    987901    OT
 
 ### Optional
 ```--basespace``` BaseSpace project name to download the FASTQ files from. See the Downloading FASTQ Files section below for further information in utilising this feature. <br />
-```--cpg``` The CpG site file to filter specific positions for generating ```CpG_meth_percent_site.tsv```. This file should contain a probe name in the first field and strand orientation in the last field with a header present in the first row. If the file does not fulfill these criteria then the ```CpG_meth_percent_site.tsv``` file cannot be generated. Formatting of the CpG site file should be as below: 
+```--cpg``` The CpG site file to filter specific positions for generating ```CpG_meth_percent_site.tsv```. This file should contain a probe name in the first field and strand orientation in the last field with a header present in the first row. Formatting of the CpG site file should be as below: 
 ```
 probe    chrom    pos    strand
 GB788    chr3    73837    -
 GB987    chr9    98654    +
 ```
-```--bs-convert``` Bisulfite convert the genome FASTA file. This only has to be performed once. <br />
+```--bs-convert``` Bisulfite convert the genome FASTA file. This only needs to be performed once. <br />
 ```--fluidigm``` Trim the CS1rc and CS2rc Fluidigm sequencing primers, oppossed to Illuminas, from your FASTQ files. <br />
-```--no-sams``` do not generate SAM files. <br/>
-```--no-trim``` do not trim FASTQ files.
+```--no-sams``` Do not generate SAM files. <br/>
+```--no-trim``` Do not trim FASTQ files.
 
 
 
