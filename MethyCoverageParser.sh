@@ -347,6 +347,7 @@ CpG_meth_perc() {
 ### EXECUTION ############################################
 
 main() {
+    echo "NOTE: initiating MethyCoverageParser v0.02"
     # construct the required directories if they are not present
     mkdir -p $SAMS $BEDS/coverage $BME $FASTQC ${SCRATCH}/bedgraph/ $SCRATCH/fastq_trimmed/ $RESULT #${SCRATCH}/BME_BED/coverage/ 
 
