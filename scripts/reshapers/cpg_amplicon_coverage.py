@@ -19,7 +19,7 @@ def CpG_cov(cov_dir, field):
     df_store = []
 
     for cov_file in cov_files:
-        sam = cov_file.split(".")[0]
+        sam = cov_file.split("/")[-1].split(".")[0]
         df = pd.read_csv(cov_dir+cov_file, sep="\t", header=None)
         df.columns = ['Chromosome', 'Position', 'pos_end', 'meth_percent', 'meth_cov', 'unmeth_cov']
         df['coverage'] = df['meth_cov'] + df['unmeth_cov']

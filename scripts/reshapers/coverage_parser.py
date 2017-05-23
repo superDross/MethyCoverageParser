@@ -15,7 +15,7 @@ def coverage(cov_dir, out):
     df_store = []
 
     for cov_file in cov_files:
-        sam = cov_file.split(".")[0]
+        sam = cov_file.split("/")[-1].split(".")[0]
         df = pd.read_csv(cov_dir+cov_file, sep="\t", header=None)
         df.columns = ['Chromosome', 'Start', 'End', 'Cov', 'n', 'length', 'fraction']
         df = df[['Chromosome', 'Start', 'End', 'Cov']]
