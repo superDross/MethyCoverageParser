@@ -1,16 +1,13 @@
 #!/bin/bash
 # created by David Ross
-version="0.01"
+version="v0.02"
 
-# TODO: feed in Amlicon.BED into SiteMethPercParser so whether the CpG site derives from primers designed to OB or OT is stated
-# TODO: convert all python2 scripts to python3
-# TODO: dicts in reshapers/*.py should become OrderedDicts
-# TODO: alter DividedCoverageParser.pl so it doesn't fail when only an OT or OB file is present
+# TODO: add probe name to output when using --cpg
 
 ### NOTES ###############################################
-# FASTQ, HUMAN_GENOME, AMPLICON_BED and CpG_SITES have to be copied over to scratch first
+# FASTQ, HUMAN_GENOME, AMPLICON_BED and CpG_SITES have to be copied over to scratch (--dir) first
 #
-# The below commands are useful for identifying unanticipated outputs within this scripts STANDOUT & STANDERR
+# The below command is useful for identifying unanticipated outputs within this scripts STANDOUT & STANDERR
 #        grep "ERROR\|SUCCESS\|NOTE\|SKIPPING" <log-files>
 #########################################################
 
@@ -130,6 +127,7 @@ download_FASTQ() {
     SECRET=`awk 'FNR == 4 {print $3}' ~/.basespacepy.cfg`
     TOKEN=`awk 'FNR == 5 {print $3}' ~/.basespacepy.cfg`
  
+    # basespace-sdk-python is written in python2
     python2 $SCRIPTS/basespace/samples2files.py \
       -K $KEY -S $SECRET -A $TOKEN -y $BASESPACE -o $FASTQ_DIR
 }
@@ -139,7 +137,7 @@ download_FASTQ() {
 # trim_FASTQS()
 #
 # Trim the CS1rc and CS2rc or Ilumina adapters from the 
-# FASTQ files.
+# FASTQ files and subsequently produce FastQC files.
 #
 # Globals:
 #   FASTQ_DIR = dir containg FASTQ files
@@ -193,8 +191,8 @@ trim_FASTQS() {
 ##############################################
 # generate_SAMS()
 #
-# Trim the CS1rc and CS2rc adapters from the 
-# FASTQ files, generate fastqc and SAM files.
+# Generate SAM files and summary mapping effciency
+# file.
 #
 # Globals:
 #   REF = dir containing BS-converted reference geneome.
@@ -242,7 +240,7 @@ generate_SAMS() {
 
 Coverage() {
 	# determines which reads are proper pairs (judging from the bitwise flags..) and parse the read start and end positions into a BED file
-    find $SAMS -name *sam | xargs -I {} python2 $SCRIPTS/sam_parsers/Sam2Bed.py {} {}.bed
+    find $SAMS -name *sam | xargs -I {} python $SCRIPTS/sam_parsers/Sam2Bed.py {} {}.bed
     find $SAMS -name *bed -print0 | xargs -r0 mv -t $BEDS
     
     # get the coverage per amplicon for the given intervals.
@@ -252,32 +250,29 @@ Coverage() {
     done
     
     # give the dir containing the coverage text files
-    python $SCRIPTS/reshapers/CoverageParser.py \
-        -d $BEDS/coverage/ -o $RESULT/pre_Coverage.tsv
+    python $SCRIPTS/reshapers/coverage_parser.py \
+        -d $BEDS/coverage/ -o $RESULT/pre_coverage.tsv
 
     # alter column names in header to sample names
     python $SCRIPTS/content_modifiers/change_header.py \
-        -i $RESULT/pre_Coverage.tsv -o $RESULT/Coverage.tsv
-    rm $RESULT/pre_Coverage.tsv
+        -i $RESULT/pre_coverage.tsv -o $RESULT/coverage.tsv
+    rm $RESULT/pre_coverage.tsv
 
 }
 
 
 ##############################################
-# CpG_divided_cov()
+# CpG_amplicon_cov()
 #
-# Gets both the methylated and unmethylated CpG 
-# coverage for both OT and OB strands across each 
-# given amplicon for every sample & output into a
-# tsv file.
+# Gets both the total methylated and unmethylated CpG 
+# coverage across each given amplicon for every 
+# sample from the bedGraph coverage files & outputs 
+# it into a tsv file.
 #
 # Globals:
-#   BME = dir to contain meth calls for every CpG CpH and CHH sites
-#   SAMS = dir containing SAM files
 #   SCRIPTS = dir containing all scripts
 #   RESULT = dir to place returned file
 #   SCRATCH = dir used to generate files
-#   CUT_AMP = bed file containing amplicon co-ordinates
 #   AMPLICON = bed file containing amplicon co-ordinates plus OT/OB status in a fourth column
 #
 # Returns:
@@ -291,41 +286,31 @@ Coverage() {
 #   OB: original bottom starnd
 ##############################################
 
-CpG_divided_cov() {
-    # Duncans perl script takes BME results and creates 2 BED files; one for meth CpG and another for unmeth CpG sites
-    find $BME -name "CpG*txt" | xargs -I {} perl -w $SCRIPTS/sam_parsers/MethUnmethCpGs2Bed.pl {} 
-    find $BME -name "CpG*BED" -print0 | xargs -r0 mv -t ${SCRATCH}/BME_BED
-    
-    # get the coverage for methylated CpG 
-    for bed in `find ${SCRATCH}/BME_BED -name CpG*BED | xargs`; do
-        bedtools coverage -a $CUT_AMP -b $bed > ${bed}_coverage.txt
-        mv ${bed}_coverage.txt ${SCRATCH}/BME_BED/coverage/
-    done
-    
-    # Create the output tsv file
-    perl -w $SCRIPTS/reshapers/DivededCoverageParser.pl \
-        $AMPLICON ${SCRATCH}/BME_BED/coverage/ > $RESULT/pre_CpG_divided_coverage.tsv
+CpG_amplicon_cov() {
+
+    python $SCRIPTS/reshapers/cpg_amplicon_coverage.py -a $AMPLICON \
+        -b ${SCRATCH}/bedgraph/ -o $RESULT/pre_CpG_amplicon_coverage.tsv
 
     # alter the column names to the sample it refers to 
     python $SCRIPTS/content_modifiers/change_header.py \
-        -i $RESULT/pre_CpG_divided_coverage.tsv -o $RESULT/CpG_divided_coverage.tsv
-    rm $RESULT/pre_CpG_divided_coverage.tsv
+        -i $RESULT/pre_CpG_amplicon_coverage.tsv -o $RESULT/CpG_amplicon_coverage.tsv
+    rm $RESULT/pre_CpG_amplicon_coverage.tsv
 
 }
 
 
 ##############################################
-# CpG_meth_cov_site()
+# CpG_meth_perc()
 #
 # Calculate the CpG methylation coverage % across
-# each site given in the CpG_site file and output
-# into a tsv file.
+# each CpG site present in the bedGraph coverage files
+# and output into a tsv file.
 #
 # Globals:
-#   BME = dir to contain meth calls for every CpG CpH and CHH sites
 #   SCRIPTS = dir containing all scripts
 #   RESULT = dir to place returned file
 #   SCRATCH = dir used to generate files
+#   AMPLICON = bed file containing amplicon co-ordinates plus OT/OB status in a fourth column
 #
 # Returns:
 #   a tsv containing CpG methylation percentage
@@ -335,31 +320,25 @@ CpG_divided_cov() {
 #
 ##############################################
 
-CpG_meth_cov_site() {
-    # create fastq-filename/sample list
-    SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.qz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | awk -F"/" '{print $NF}' | awk -F"." '{print $1}' | sort | xargs`
-    
-    # bismark2bedgraph needed to produce the coverage files along with the bedgraph files
-    for sam in $SAM_LIST; do
-        cpg_pairs=`find $BME -name "CpG*_${sam}_*txt" | xargs`
-        bismark2bedGraph $cpg_pairs --dir ${SCRATCH}/BME_bedgraph -o ${sam}.bedGraph
-        gunzip ${SCRATCH}/BME_bedgraph/*.gz
-    done 
-   
-    # determine whther to filter for specific CpG sites or not 
+CpG_meth_perc() {
+  
+    # CpG methylation percentage for all CpG sites within given amplicon ranges. Determine whther to filter for specific CpG sites or not 
     if [ -z $CPG ]; then 
-        python3 $SCRIPTS/reshapers/SiteMethPercParser.py \
-            -b ${SCRATCH}/BME_bedgraph/ -o $RESULT/pre_CpG_meth_percent_site.tsv
+        python $SCRIPTS/reshapers/cpg_meth_percent.py -a $AMPLICON \
+            -b ${SCRATCH}/bedgraph/ -o $RESULT/pre_CpG_meth_percent.tsv
     else
         # CpG_sites.csv contains CpG sites which are found to be highly differntailly methylated between tumour and leukocytes
-        python3 $SCRIPTS/reshapers/SiteMethPercParser.py \
-            -b ${SCRATCH}/BME_bedgraph/ -p $CPG -o $RESULT/pre_CpG_meth_percent_site.tsv
+        python $SCRIPTS/reshapers/cpg_meth_percent.py -a $AMPLICON \
+            -b ${SCRATCH}/bedgraph/ -p $CPG -o $RESULT/pre_CpG_meth_percent.tsv
     fi
+
 
     # alter column names in header to sample names
     python $SCRIPTS/content_modifiers/change_header.py \
-        -i $RESULT/pre_CpG_meth_percent_site.tsv -o $RESULT/CpG_meth_percent_site.tsv
-    rm $RESULT/pre_CpG_meth_percent_site.tsv
+        -i $RESULT/pre_CpG_meth_percent.tsv -o $RESULT/CpG_meth_percent.tsv
+    rm $RESULT/pre_CpG_meth_percent.tsv
+
+
 }
 
 
@@ -369,11 +348,13 @@ CpG_meth_cov_site() {
 ### EXECUTION ############################################
 
 main() {
-    # construct the required directories if they are not present
-    mkdir -p $SAMS $BEDS/coverage $BME $FASTQC ${SCRATCH}/BME_BED/coverage/ ${SCRATCH}/BME_bedgraph/ $SCRATCH/fastq_trimmed/ $RESULT
 
-    # cut the amplicon file (in case it has OT/OB info in the fourth column), bedtools coverage behaves differently if a fourth column is present 
-    # so doing this is neccassery for getting an accurate output from Coverage() and CpG_meth_cov_site()
+    echo "NOTE: initiating MethyCoverageParser $version"
+
+    # construct the required directories if they are not present
+    mkdir -p $SAMS $BEDS/coverage $BME $FASTQC ${SCRATCH}/bedgraph/ $SCRATCH/fastq_trimmed/ $RESULT 
+
+    # cut the amplicon file (OT/OB info in the fourth column), bedtools coverage behaves oddly if a fourth column is present 
     awk '{print $1 "\t" $2 "\t" $3}' $AMPLICON > $RESULT/AmpliconLocation.BED
     CUT_AMP=$RESULT/AmpliconLocation.BED
 
@@ -403,18 +384,28 @@ main() {
         echo "SKIPPING: generation of SAM files"
     fi
     
-    # extract the methylation call for every C and write out its position. Report will allow you to work out methylation % in CpG, CHG & CHG contexts. 
-    # --mbias_off as GD perl module error disallows its creation in eddie3.
+    # extract the methylation call for every C and write out its position. 
+    # --mbias_off as GD perl module error disallows its creation within eddie3.
     bismark_methylation_extractor -p --mbias_off -o $BME/ `find $SAMS -name *sam | xargs`
+
+     # create fastq-filename/sample list
+    SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.qz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | awk -F"/" '{print $NF}' | awk -F"." '{print $1}' | sort | xargs`
+    
+    # produce bedgraph coverage files
+    for sam in $SAM_LIST; do
+        cpg_pairs=`find $BME -name "CpG*_${sam}_*txt" | xargs`
+        bismark2bedGraph $cpg_pairs --dir ${SCRATCH}/bedgraph -o ${sam}.bedGraph
+        gunzip ${SCRATCH}/bedgraph/*.gz
+    done 
     
     # get coverage for all samples/FASTQs
     Coverage
     
-    # get coverage for all CpG that are meth/unmeth/OT/OB
-    CpG_divided_cov
+    # get total meth/unmeth coverage for all CpG sites in each amplicon
+    CpG_amplicon_cov
     
-    # get CpG methylation percantages for all sites stored in $CPG
-    CpG_meth_cov_site
+    # get CpG methylation percantages for ech CpG site
+    CpG_meth_perc
 }
 
 main
