@@ -33,6 +33,7 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
 	--fluidigm      trim the fluidigm CS1rc & CS2rc adapters from FASTQs
 	--no-sams       do not generate SAM files
 	--no-trim       do not trim FASTQ files
+    --no-bismark    do not generate BME or bedgraph coverage files
 	EOF
 	exit 0
 fi
@@ -61,6 +62,7 @@ while [[ $# -gt 0 ]]; do
       --bs-convert) BS_CONVERT="YES" ;;
       --no-sams) SAM_GENERATION="NO" ;;
       --no-trim) TRIM="NO" ;;
+      --no-bismark) BISMARK="NO" ;;
       --fluidigm) FLUIDIGM="YES" ;;
       *) echo -e "Unknown argument:\t$arg"; exit 0 ;;
     esac
@@ -370,34 +372,40 @@ main() {
         echo "SKIPPING: bisulfite conversion of the genome" 
     fi
 
-    # trim fastq provided the --no-trim option has not been given
+    # trim fastq provided the --no-trim flag has not been given
     if [ -z $TRIM ]; then
         trim_FASTQS 
     else 
         echo "SKIPPING: trimming of FASTQ files"
     fi
     
-    # generate bismark SAM files provided --no-sams option has not been given
+    # generate bismark SAM files provided --no-sams flag has not been given
     if [ -z $SAM_GENERATION ]; then
     	generate_SAMS 
     else
         echo "SKIPPING: generation of SAM files"
     fi
-    
-    # extract the methylation call for every C and write out its position. 
-    # --mbias_off as GD perl module error disallows its creation within eddie3.
-    bismark_methylation_extractor -p --mbias_off -o $BME/ `find $SAMS -name *sam | xargs`
 
-     # create fastq-filename/sample list
-    SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.qz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | awk -F"/" '{print $NF}' | awk -F"." '{print $1}' | sort | xargs`
-    
-    # produce bedgraph coverage files
-    for sam in $SAM_LIST; do
-        cpg_pairs=`find $BME -name "CpG*_${sam}_*txt" | xargs`
-        bismark2bedGraph $cpg_pairs --dir ${SCRATCH}/bedgraph -o ${sam}.bedGraph
-        gunzip ${SCRATCH}/bedgraph/*.gz
-    done 
-    
+    # only intiatate BME and bismark2bedgraph if --no-bismark flag is not present
+    if [ -z $BISMARK ]; then
+        # extract the methylation call for every C and write out its position. 
+        # --mbias_off as GD perl module error disallows its creation within eddie3.
+        bismark_methylation_extractor -p --mbias_off -o $BME/ `find $SAMS -name *sam | xargs`
+
+         # create fastq-filename/sample list
+        SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.qz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | awk -F"/" '{print $NF}' | awk -F"." '{print $1}' | sort | xargs`
+        
+        # produce bedgraph coverage files
+        for sam in $SAM_LIST; do
+            cpg_pairs=`find $BME -name "CpG*_${sam}_*txt" | xargs`
+            bismark2bedGraph $cpg_pairs --dir ${SCRATCH}/bedgraph -o ${sam}.bedGraph
+            gunzip ${SCRATCH}/bedgraph/*.gz
+        done 
+
+    else
+        echo "SKIPPING: bismark methylation extraction and bedGraph coverage file generation"
+    fi
+
     # get coverage for all samples/FASTQs
     Coverage
     

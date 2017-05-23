@@ -90,7 +90,8 @@ GB987    chr9    98654    +
 ```--bs-convert``` Bisulfite convert the genome FASTA file. This only needs to be performed once. <br />
 ```--fluidigm``` Trim the CS1rc and CS2rc Fluidigm sequencing primers, oppossed to Illuminas, from your FASTQ files. <br />
 ```--no-sams``` Do not generate SAM files. <br/>
-```--no-trim``` Do not trim FASTQ files.
+```--no-trim``` Do not trim FASTQ files. <br />
+```--no-bismark``` Do not produce bismark methylation extraction and bedGraph coverage files
 
 
 
