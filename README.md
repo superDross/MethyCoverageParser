@@ -9,7 +9,7 @@ CLI interface, documentation, organisation and wrapper bash script created by Da
 ## Description
 ### Summary
 A command line tool which uses [Bismark](https://www.bioinformatics.babraham.ac.uk/projects/bismark/) and a selection of parsing scripts to manipulate FASTQ files derived from bisulfite-converted targeted-sequencing to produce four files: <br />
-- mapping_efficiency_summary.txt - percentage of sequences which uniquely align to the BS-genome <br />
+- mapping_efficiency_summary.txt - unique best alignment percentage for each parsed FASTQ file <br />
 - Coverage.tsv - details amplicon coverage <br />
 - CpG_amplicon_coverage.tsv - the total methylated and unmethylated coverage for all CpG sites covering each sequenced amplicon <br />
 - CpG_meth_percent.tsv - details CpG methylation percentages for all sequenced CpG sites. <br />
@@ -62,6 +62,7 @@ FastQC
 cutadapt v1.13
 TrimGalore v0.4.1
 bowtie2 v2.3.1
+samtools v1.3
 bismark v0.16.3
 bedtools v2.26.0
 ```

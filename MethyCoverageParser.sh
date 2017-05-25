@@ -213,7 +213,7 @@ generate_SAMS() {
     R2=`find $SCRATCH/fastq_trimmed/ -iregex '.*\(_R2_*val.*\|val_2.\)\(fq.gz\|fastq.gz\|fq\|fastq\|sanfastq\|sanfastq.gz\)' | sort | xargs | sed 's/ /,/g'`
     
     # align to BS-converted genome and convert bam to sam files. Bowtie2 for >50bp reads.
-    bismark --bowtie2 -1 $R1 -2 $R2 --sam -o $SAMS/ $REF 
+    bismark --bowtie2 --non_directional -1 $R1 -2 $R2 --sam -o $SAMS/ $REF 
 
     # create a mapping efficiency summary file
     find $SAMS/ -name "*_report.txt" | xargs grep "Mapping efficiency" | sed 's/:/\t/g' | awk -F"/" '{print $NF}' > $RESULT/mapping_efficiency_summary.txt

@@ -176,7 +176,7 @@ if __name__ == '__main__':
 
     def download_now(count=0):
         ''' Download parsed project from BaseSpace. Desired number of SSLerror attempts 
-            can't be parsed to basespace=python-sdk, hence the below recursive loop. This 
+            can't be parsed to basespace-python-sdk, hence the below recursive loop. This 
             allows ten attempts to connect to BaseSpace before exiting.
         '''
         try:
