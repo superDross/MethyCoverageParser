@@ -30,11 +30,11 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
 	-c, --cpg            file containing CpG sites of interest in BED like format    
 	options:
 	--bs-convert         BS-convert the given reference genome
-    --non-directional    align in an non-directional fashion
+	--non-directional    align in an non-directional fashion
 	--fluidigm           trim the fluidigm CS1rc & CS2rc adapters from FASTQs
 	--no-sams            do not generate SAM files
 	--no-trim            do not trim FASTQ files
-    --no-bme             do not generate BME or bedgraph coverage files
+	--no-bme             do not generate BME or bedgraph coverage files
 	EOF
 	exit 0
 fi
