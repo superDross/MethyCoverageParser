@@ -1,4 +1,15 @@
 ''' Script to read in bismark paired end SAM and parse to give BED of fragments for calulating read depth across features
+ 
+ 
+        default                  old_flag
+   ===================     ===================
+   Read 1       Read 2     Read 1       Read 2
+ OT:    99           147        67           131
+ OB:    83           163       115           179
+ CTOT:  99           147        67           131
+ CTOB:  83           163       115           179 
+
+
 Created by Duncan Sproul
 '''
 

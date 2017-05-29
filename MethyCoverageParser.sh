@@ -21,19 +21,20 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
 	a given set of FASTQ files over a set of given amplicons
 
 	required arguments:
-	-f, --fastq     path containing dirs with fastq files
-	-d, --dir       directory in which data generation will take place (SCRATCH)
-	-r, --ref       directory containing BS-converted genome
-	-a, --amplicon  BED file containing amplicon start and end coordinates
+	-f, --fastq          path containing dirs with fastq files
+	-d, --dir            directory in which data generation will take place (SCRATCH)
+	-r, --ref            directory containing BS-converted genome
+	-a, --amplicon       BED file containing amplicon start and end coordinates
 	optional arguments:
-	-b, --basespace basespace project name to download FASTQ files from
-	-c, --cpg       file containing CpG sites of interest in BED like format    
+	-b, --basespace      basespace project name to download FASTQ files from
+	-c, --cpg            file containing CpG sites of interest in BED like format    
 	options:
-	--bs-convert    BS-convert the given reference genome
-	--fluidigm      trim the fluidigm CS1rc & CS2rc adapters from FASTQs
-	--no-sams       do not generate SAM files
-	--no-trim       do not trim FASTQ files
-    --no-bismark    do not generate BME or bedgraph coverage files
+	--bs-convert         BS-convert the given reference genome
+    --non-directional    align in an non-directional fashion
+	--fluidigm           trim the fluidigm CS1rc & CS2rc adapters from FASTQs
+	--no-sams            do not generate SAM files
+	--no-trim            do not trim FASTQ files
+    --no-bme             do not generate BME or bedgraph coverage files
 	EOF
 	exit 0
 fi
@@ -60,9 +61,10 @@ while [[ $# -gt 0 ]]; do
       -c|--cpg) CPG="$2"; shift ;;
       -b|--basespace) BASESPACE="$2"; shift ;;
       --bs-convert) BS_CONVERT="YES" ;;
+      --non-directional) DIRECTIONAL="NO" ;;
       --no-sams) SAM_GENERATION="NO" ;;
       --no-trim) TRIM="NO" ;;
-      --no-bismark) BISMARK="NO" ;;
+      --no-bme) METHY_EXTRACT="NO" ;;
       --fluidigm) FLUIDIGM="YES" ;;
       *) echo -e "Unknown argument:\t$arg"; exit 0 ;;
     esac
@@ -153,7 +155,7 @@ download_FASTQ() {
 
 trim_FASTQS() {
     # get all FASTQ files and ensure there are an even number of fastq files
-    FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.qz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | sort`
+    FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.gz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | sort`
     FASTQS_NUM=`echo $FASTQS | wc -w`
 
     if [ $((FASTQS_NUM%2)) -eq 0 ]; then
@@ -198,6 +200,7 @@ trim_FASTQS() {
 #
 # Globals:
 #   REF = dir containing BS-converted reference geneome.
+#   DIRECTIONAL = if variable empty then align directionally
 #   SCRATCH = dir used to generate files
 #   SAMS = dir containing SAM files
 # 
@@ -213,7 +216,18 @@ generate_SAMS() {
     R2=`find $SCRATCH/fastq_trimmed/ -iregex '.*\(_R2_*val.*\|val_2.\)\(fq.gz\|fastq.gz\|fq\|fastq\|sanfastq\|sanfastq.gz\)' | sort | xargs | sed 's/ /,/g'`
     
     # align to BS-converted genome and convert bam to sam files. Bowtie2 for >50bp reads.
-    bismark --bowtie2 --non_directional -1 $R1 -2 $R2 --sam -o $SAMS/ $REF 
+    if [ -z $DIRECTIONAL ]; then
+        echo "NOTE: aligning in directional fashion"
+        bismark --bowtie2 -1 $R1 -2 $R2 --sam -o $SAMS/ $REF 
+    else 
+        echo "NOTE: aligning in non-directional fashion"
+        bismark --non_directional --bowtie2 -1 $R1 -2 $R2 --sam -o $SAMS/ $REF 
+    fi
+
+    # recently getting an error with bme if the sam files are not compressed when aligning in --non_directional fashion (perhaps sam file too big when aligning in this manner??)
+    #for sam_file in `find . -name "*sam"`; do 
+    #    bgzip -c $sam_file > ${sam_file}.gz 
+    #done
 
     # create a mapping efficiency summary file
     find $SAMS/ -name "*_report.txt" | xargs grep "Mapping efficiency" | sed 's/:/\t/g' | awk -F"/" '{print $NF}' > $RESULT/mapping_efficiency_summary.txt
@@ -242,11 +256,14 @@ generate_SAMS() {
 
 Coverage() {
 	# determines which reads are proper pairs (judging from the bitwise flags..) and parse the read start and end positions into a BED file
-    find $SAMS -name *sam | xargs -I {} python $SCRIPTS/sam_parsers/Sam2Bed.py {} {}.bed
-    find $SAMS -name *bed -print0 | xargs -r0 mv -t $BEDS
+    echo -e "NOTE: the following SAMs will be converted to BED\n`find $SAMS -name '*sam'`"
+
+    find $SAMS -name '*sam' | xargs -I {} python $SCRIPTS/sam_parsers/Sam2Bed.py {} {}.bed
+    find $SAMS -name '*bed' -print0 | xargs -r0 mv -t $BEDS
     
     # get the coverage per amplicon for the given intervals.
-    for bed in `find $BEDS -name *bed | xargs`; do
+    for bed in `find $BEDS -name '*bed' | xargs`; do
+        echo "NOTE: calculating $bed coverage...."
         bedtools coverage -a $CUT_AMP -b $bed > ${bed}_coverage.txt
         mv ${bed}_coverage.txt $BEDS/coverage/
     done
@@ -387,13 +404,16 @@ main() {
     fi
 
     # only intiatate BME and bismark2bedgraph if --no-bismark flag is not present
-    if [ -z $BISMARK ]; then
+    if [ -z $METHY_EXTRACT ]; then
+
+        echo "NOTE: generating BME files"
+
         # extract the methylation call for every C and write out its position. 
         # --mbias_off as GD perl module error disallows its creation within eddie3.
-        bismark_methylation_extractor -p --mbias_off -o $BME/ `find $SAMS -name *sam | xargs`
-
-         # create fastq-filename/sample list
-        SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.qz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | awk -F"/" '{print $NF}' | awk -F"." '{print $1}' | sort | xargs`
+        bismark_methylation_extractor -p --mbias_off -o $BME/ `find $SAMS -name "*sam" | xargs`
+         
+        # create fastq-filename/sample list
+        SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.gz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | awk -F"/" '{print $NF}' | awk -F"." '{print $1}' | sort | xargs`
         
         # produce bedgraph coverage files
         for sam in $SAM_LIST; do

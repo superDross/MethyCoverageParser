@@ -28,3 +28,6 @@ CTOB   ATCCAA
 
 # FastQC
 base per sequence cytosine percentage will be around 0% if only the OT and OB strands align, however the percentage will increase if CTOT or CTOB align so don't be alarmed by the high C content. Look for a large increase in cytosine percentage at the ends of the reads; these will need to be trimmed. Ensure all base percentages are not equal as this will possibly imply poor bisulfite conversion (?).
+
+# Primer Design
+The first and second pool (TestMiSeq and Rachels pools) amplicon primers were designed to the OT and OB strand (directional) using the BisulfitePrimerSeeker. The third and fourth pool primers were designed to the OT and CTOB strand (non-directional) by accident using the PrimerSuite program; they thought they were designing to OB and not CTOB. PrimerSuite produces a xlsx workbook with a C-T tab containing primers designed to OT/OB while A-G tab contains primers designed to CTOT/CTOB.

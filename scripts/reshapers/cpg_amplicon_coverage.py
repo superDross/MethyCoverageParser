@@ -16,6 +16,7 @@ def CpG_cov(cov_dir, field):
         raise IOError("field must be meth_cov or unmeth_cov not {}".format(field))
         
     cov_files = sorted([f for f in os.listdir(cov_dir) if f.endswith('cov')])
+    print("NOTE: the following BME coverage files will be combined\n"+str(cov_files))
     df_store = []
 
     for cov_file in cov_files:

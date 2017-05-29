@@ -12,6 +12,7 @@ def coverage(cov_dir, out):
         out: output file
     '''
     cov_files = [f for f in os.listdir(cov_dir) if f.endswith('coverage.txt')]
+    print("NOTE: the following BED coverage files will be combined\n"+str(cov_files))
     df_store = []
 
     for cov_file in cov_files:

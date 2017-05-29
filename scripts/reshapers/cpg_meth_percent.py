@@ -15,7 +15,7 @@ def CpG_dataframe(cov_dir):
        '''
     cov_files = [f for f in os.listdir(cov_dir) 
                  if f.endswith('cov')]
-
+    print("NOTE: the following bedGraph coverage files will be combined\n"+str(cov_files))
     df_store = []
 
     for cov_file in cov_files:
