@@ -53,7 +53,8 @@ def insert_strand(cpg, amplicon):
     '''
     cpg = cpg.reset_index()
     cpg['Strand'] = cpg.apply(lambda x: determine_strand(x, amplicon), axis=1)
-
+    # remove cpg sites outwith the given amplicons
+    cpg = cpg.dropna(subset=['Strand'])
     cpg = cpg.set_index(['Chromosome', 'Position', 'Strand'])
     return cpg
 

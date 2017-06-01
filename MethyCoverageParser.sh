@@ -1,6 +1,6 @@
 #!/bin/bash
 # created by David Ross
-version="v0.02"
+version="v0.03"
 
 # TODO: add probe name to output when using --cpg
 
@@ -244,6 +244,7 @@ generate_SAMS() {
 # Globals:
 #   SAMS = dir containing SAM files
 #   BEDS = dir containing to be generated BED files
+#   DIRECTIONAL = if variable empty then align directionally
 #   SCRIPTS = dir containing all scripts
 #   RESULT = dir to place returned file
 #   CUT_AMP = bed file containing amplicon co-ordinates
@@ -258,7 +259,13 @@ Coverage() {
 	# determines which reads are proper pairs (judging from the bitwise flags..) and parse the read start and end positions into a BED file
     echo -e "NOTE: the following SAMs will be converted to BED\n`find $SAMS -name '*sam'`"
 
-    find $SAMS -name '*sam' | xargs -I {} python $SCRIPTS/sam_parsers/Sam2Bed.py {} {}.bed
+    # add complementary proper paired reads to BED file if directional is not empty
+    if [ -z $DIRECTIONAL ]; then
+        find $SAMS -name '*sam' | xargs -I {} python $SCRIPTS/sam_parsers/Sam2Bed.py --sam {} --bed {}.bed
+    else
+        find $SAMS -name '*sam' | xargs -I {} python $SCRIPTS/sam_parsers/Sam2Bed.py --non_directional --sam {} --bed {}.bed
+    fi
+
     find $SAMS -name '*bed' -print0 | xargs -r0 mv -t $BEDS
     
     # get the coverage per amplicon for the given intervals.
