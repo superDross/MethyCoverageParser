@@ -1,8 +1,9 @@
 #!/bin/bash
 # created by David Ross
-version="v0.03"
+version="v0.04"
 
 # TODO: add probe name to output when using --cpg
+# TODO: reduce repetitive code in reshaper scripts (check out design patterns)
 
 ### NOTES ###############################################
 # FASTQ, HUMAN_GENOME, AMPLICON_BED and CpG_SITES have to be copied over to scratch (--dir) first
@@ -28,6 +29,7 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
 	optional arguments:
 	-b, --basespace      basespace project name to download FASTQ files from
 	-c, --cpg            file containing CpG sites of interest in BED like format    
+	-f, --filter-by-tile filter reads based on tile quality - path to BBMap dir
 	options:
 	--bs-convert         BS-convert the given reference genome
 	--non-directional    align in an non-directional fashion
@@ -60,6 +62,7 @@ while [[ $# -gt 0 ]]; do
       -a|--amplicon) AMPLICON="$2"; shift ;;
       -c|--cpg) CPG="$2"; shift ;;
       -b|--basespace) BASESPACE="$2"; shift ;;
+      -f|--filter-by-tile) BBMAP="$2"; shift ;;
       --bs-convert) BS_CONVERT="YES" ;;
       --non-directional) DIRECTIONAL="NO" ;;
       --no-sams) SAM_GENERATION="NO" ;;
@@ -92,6 +95,7 @@ fi
 
 ### GLOBAL VARIABLES #####################################
 SCRIPTS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/scripts/ # the absolute path of the dir in which this script is within
+FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.gz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | sort`
 SAMS=$SCRATCH/alignment/sams/
 BEDS=$SCRATCH/BED_files/
 BME=$SCRATCH/BME/
@@ -137,6 +141,74 @@ download_FASTQ() {
 }
 
 
+#############################################
+# get_FASTQ_num()
+#
+# Detrmine the number of FASTQS, if odd number 
+# then exit script and warn user.
+#
+#
+# Globals:
+#   FASTQS = list of all fastq files to 
+#   FASTQ_DIR = dir containg FASTQ files
+#
+##############################################
+
+get_FASTQ_num() {
+
+    FASTQS_NUM=`echo $FASTQS | wc -w`
+
+    if [ $((FASTQS_NUM%2)) -eq 0 ]; then
+        # even
+        echo "SUCCESS: Acceptable number of fastq files found ($FASTQS_NUM)." \
+             "Fastq files will be paired and parsed into filterbytile and/or trim-galore as follows:"
+        echo $FASTQS | xargs -n 2
+    else
+	    # odd
+        >&2 echo "ERROR: Unacceptable number of fastq files found ($FASTQS_NUM)." \
+                 "Must be even number of fastq files. The following fastq files" \
+                 "would have been paired before being parsed into filterbytile and/or trim-galore:"
+        >&2 echo $FASTQS | xargs -n 2
+        exit 1
+    fi
+}
+
+
+#############################################
+# filter_by_tile()
+#
+# Remove reads from FASTQ files with tile positional
+# issues; poor sequence per til quality in fastqc output
+#
+# Globals:
+#   FASTQS = all FASTQ files 
+#
+# Returns:
+#   FASTQS = filtered FASTQ files
+#
+#############################################
+
+filter_by_tile() {
+    
+    echo "NOTE: filtering FASTQ files based upon tile quality"
+
+    # NOTE: below sed hack is not nice, fix it
+    for read_pairs in `echo $FASTQS | xargs -n 2 | sed 's/ /____/g'`; do
+        FIRST=`echo $read_pairs | awk -F'____' '{print $1}'`
+        SECOND=`echo $read_pairs | awk -F '____' '{print $2}'`
+        FIRST_OUT=`echo $FIRST | awk -F'/' '{print $NF}'`
+        SECOND_OUT=`echo $SECOND | awk -F'/' '{print $NF}'`
+        
+        $BBMAP/filterbytile.sh in1=$FIRST in2=$SECOND \
+             out1=$SCRATCH/fastq_filtered/$FIRST_OUT \
+             out2=$SCRATCH/fastq_filtered/$SECOND_OUT
+    done
+        
+    # trim these FASTQ files instead of the raw fastq files
+    FASTQS=`find $SCRATCH/fastq_filtered/* -iregex '.*\.\(fastq.gz\|fq.gz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | sort`
+
+}
+
 ##############################################
 # trim_FASTQS()
 #
@@ -144,8 +216,8 @@ download_FASTQ() {
 # FASTQ files and subsequently produce FastQC files.
 #
 # Globals:
-#   FASTQ_DIR = dir containg FASTQ files
-#   SCRATCH = dir used to generate files
+#   FLUIDIGM = var determining what adapters to trim
+#   FASTQS = raw or fltered FASTQ files
 #   FASTQC = dir to contain fastqc reports
 # 
 # Returns:
@@ -154,25 +226,13 @@ download_FASTQ() {
 ##############################################
 
 trim_FASTQS() {
-    # get all FASTQ files and ensure there are an even number of fastq files
-    FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.gz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | sort`
-    FASTQS_NUM=`echo $FASTQS | wc -w`
 
-    if [ $((FASTQS_NUM%2)) -eq 0 ]; then
-        # even
-        echo "SUCCESS: Acceptable number of fastq files found ($FASTQS_NUM)." \
-             "Fastq files will be paired and parsed into trim-galore as follows:"
-        echo $FASTQS | xargs -n 2
+    if [ ! -z $BBMAP ]; then
+        echo "NOTE: Filtered FASTQ files will be trimmed"
     else
-	    # odd
-        >&2 echo "ERROR: Unacceptable number of fastq files found ($FASTQS_NUM)." \
-                 "Must be even number of fastq files. The following fastq files" \
-                 "would have been paired before being parsed into trim-galore:"
-        >&2 echo $FASTQS | xargs -n 2
-        exit 1
+        echo "NOTE: Raw FASTQ files will be trimmed"
     fi
-
-    
+       
     if [ ! -z $FLUIDIGM ]; then
         # -n2 works under the assumption that the FATSQS are sorted in read pairs
         echo "NOTE: Trimming Fluidigm CS1rc and CS2rc sequencing primers from FASTQ files"
@@ -189,6 +249,7 @@ trim_FASTQS() {
                                  --trim1 \
                                  --fastqc_args "--outdir $FASTQC"
     fi
+
 }
 
 
@@ -232,6 +293,37 @@ generate_SAMS() {
     # create a mapping efficiency summary file
     find $SAMS/ -name "*_report.txt" | xargs grep "Mapping efficiency" | sed 's/:/\t/g' | awk -F"/" '{print $NF}' > $RESULT/mapping_efficiency_summary.txt
 
+}
+
+#############################################
+# generate_BME()
+#
+# Produce BME and bedgrpah files 
+#
+# Globals:
+#   BME = output directory for BME files
+#   SAMS = directory containing alignment files
+#   SCRATCH = directory of data processing
+#   FASTQ_DIR = directory containing raw FASTQ files
+#
+#############################################
+generate_BME() {
+
+    echo "NOTE: generating BME files"
+
+    # extract the methylation call for every C and write out its position. 
+    # --mbias_off as GD perl module error disallows its creation within eddie3.
+    bismark_methylation_extractor -p --mbias_off -o $BME/ `find $SAMS -name "*sam" | xargs`
+     
+    # create fastq-filename/sample list
+    SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.gz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | awk -F"/" '{print $NF}' | awk -F"." '{print $1}' | sort | xargs`
+    
+    # produce bedgraph coverage files
+    for sam in $SAM_LIST; do
+        cpg_pairs=`find $BME -name "CpG*_${sam}_*txt" | xargs`
+        bismark2bedGraph $cpg_pairs --dir ${SCRATCH}/bedgraph -o ${sam}.bedGraph
+        gunzip ${SCRATCH}/bedgraph/*.gz
+    done 
 }
 
 
@@ -378,7 +470,7 @@ main() {
     echo "NOTE: initiating MethyCoverageParser $version"
 
     # construct the required directories if they are not present
-    mkdir -p $SAMS $BEDS/coverage $BME $FASTQC ${SCRATCH}/bedgraph/ $SCRATCH/fastq_trimmed/ $RESULT 
+    mkdir -p $SAMS $BEDS/coverage $BME $FASTQC ${SCRATCH}/bedgraph/ $SCRATCH/fastq_trimmed/ $RESULT $SCRATCH/fastq_filtered/
 
     # cut the amplicon file (OT/OB info in the fourth column), bedtools coverage behaves oddly if a fourth column is present 
     awk '{print $1 "\t" $2 "\t" $3}' $AMPLICON > $RESULT/AmpliconLocation.BED
@@ -395,8 +487,18 @@ main() {
     else
         echo "SKIPPING: bisulfite conversion of the genome" 
     fi
+    
+    # calculate number FASTQS, ensure there aren't an odd number and return list of FASTQS to be trimmed
+    get_FASTQ_num
 
-    # trim fastq provided the --no-trim flag has not been given
+    # filter FASTQS by tile quality (; if --filter-by-tile argument given)
+    if [ ! -z $BBMAP ]; then
+        filter_by_tile
+    else
+        echo "SKIPPING: filterbytile"
+    fi
+
+    # trim fastq files provided the --no-trim flag has not been given
     if [ -z $TRIM ]; then
         trim_FASTQS 
     else 
@@ -409,26 +511,14 @@ main() {
     else
         echo "SKIPPING: generation of SAM files"
     fi
+    
+    # Combine QC data for all samples fastqc, trimmed fastq and sam files
+    multiqc --force --ignore *_val_2_* $SCRATCH/fastq_trimmed/ $SCRATCH/fastqc/ $SCRATCH/alignment/sams/ \
+            --outdir $SCRATCH/results/
 
-    # only intiatate BME and bismark2bedgraph if --no-bismark flag is not present
+    # only intiatate BME and bismark2bedgraph if --no-bme flag is not present
     if [ -z $METHY_EXTRACT ]; then
-
-        echo "NOTE: generating BME files"
-
-        # extract the methylation call for every C and write out its position. 
-        # --mbias_off as GD perl module error disallows its creation within eddie3.
-        bismark_methylation_extractor -p --mbias_off -o $BME/ `find $SAMS -name "*sam" | xargs`
-         
-        # create fastq-filename/sample list
-        SAM_LIST=`find $FASTQ_DIR/ -iregex '.*\(_R1_\|_1.\).*\.\(fastq.gz\|fq.gz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | awk -F"/" '{print $NF}' | awk -F"." '{print $1}' | sort | xargs`
-        
-        # produce bedgraph coverage files
-        for sam in $SAM_LIST; do
-            cpg_pairs=`find $BME -name "CpG*_${sam}_*txt" | xargs`
-            bismark2bedGraph $cpg_pairs --dir ${SCRATCH}/bedgraph -o ${sam}.bedGraph
-            gunzip ${SCRATCH}/bedgraph/*.gz
-        done 
-
+        generate_BME
     else
         echo "SKIPPING: bismark methylation extraction and bedGraph coverage file generation"
     fi
@@ -442,6 +532,7 @@ main() {
     # get CpG methylation percantages for ech CpG site
     CpG_meth_perc
 }
+
 
 main
 

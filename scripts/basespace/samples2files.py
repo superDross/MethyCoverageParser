@@ -185,6 +185,7 @@ if __name__ == '__main__':
                     sampleId=options.sampleId, projectId=options.projectId, \
                     sampleName=options.sampleName, projectName=options.projectName, \
                     outputDirectory=options.outputDirectory, createBsDir=options.createBsDir)
+        # this will catch everything. Not good......
         except:
             if count == 10:
                 print("ERROR: attempted to download FASTQ files from BaseSpace project 10 times. Now exiting process.")

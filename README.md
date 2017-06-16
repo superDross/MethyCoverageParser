@@ -53,7 +53,7 @@ Reading the [Bismark documentation](https://rawgit.com/FelixKrueger/Bismark/mast
 
 The FASTQ files contained within the directory detailed in the ```--fastq``` option have the sequencing primers cut off  to produce trimmed FASTQ files. The subsequently produced FastQC files should be inspected to ensure they are of adequate quality    for alignment. The following [document](https://www.epigenesys.eu/images/stories/protocols/pdf/20120720103700_p57.pdf) can be used  to help determine this.
 
-Bismark aligns the trimmed FASTQ files to the bisulfite-converted genome stored in the directory detailed within the ```--ref``` option to produce SAM files. A *mapping_efficiency_summary.txt* file is also       produced and details the percentage of reads from a FASTQ file pair which uniquely align to the genome.
+Bismark aligns the trimmed FASTQ files to the bisulfite-converted genome stored in the directory detailed within the ```--ref``` option to produce SAM files. A *mapping_efficiency_summary.txt* file is also       produced and details the percentage of reads from a FASTQ file pair which uniquely align to the genome. A [MultiQC](http://multiqc.info/) file is generated and contains quality information for all parsed FASTQ files.
 
 #### II - Coverage
 The Sam2Bed script iterates through the SAM files and outputs the positions of paired reads which map in proper pairs and outputs them into BED files. [Bedtools Coverage](http://bedtools.readthedocs.io/en/latest/content/tools/coverage.html) subsequently determines the number of times a position range described within the BED file overlaps with the amplicons described within the amplicon bed file (parsed to the ```--amplicon``` option) to produce BED Coverage files. The information from all BED Coverage files are grouped, reformatted and exported as *Coverage.tsv*.
@@ -86,6 +86,7 @@ MethyCoverageParser has only been tested with bash version 4.2.46. The below pro
 ```
 python2.7
 FastQC 
+MultiQC v1.0
 cutadapt v1.13
 TrimGalore v0.4.1
 bowtie2 v2.3.1
@@ -115,6 +116,7 @@ probe    chrom    pos    strand
 GB788    chr3    73837    -
 GB987    chr9    98654    +
 ```
+```--filter-by-tile``` Directory path containing BBMap scripts. This removes reads with poor tile quality from the FASTQ files. <br />
 ```--bs-convert``` Bisulfite convert the genome FASTA file. This only needs to be performed once. <br />
 ```--non-directional``` align reads in an non-directional fashion. <br />
 ```--fluidigm``` Trim the CS1rc and CS2rc Fluidigm sequencing primers, oppossed to Illuminas, from your FASTQ files. <br />
@@ -136,7 +138,7 @@ MethyCoverageParser.sh \
 	--bs-convert \
 	--fluidigm
 ```
-The below command instructs MethyCoverageParser: that data processing will occur within the scratch directory, to download the FASTQ files from the BaseSpace project 'Methylation_Project' and which directory to store them within (scratch), the directory in which the reference genome is stored within, the location of the amplicon BED file used to determine coverage and to filter *CpG_meth_percent.tsv* for the CpGs detailed in *CpG_sites.tsv*
+The below command instructs MethyCoverageParser: that data processing will occur within the scratch directory, to download the FASTQ files from the BaseSpace project 'Methylation_Project' and which directory to store them within (scratch/fq_files/), the directory in which the reference genome is stored within, the location of the amplicon BED file used to determine coverage and to filter *CpG_meth_percent.tsv* for the CpGs detailed in *CpG_sites.tsv*
 ```bash
 MethyCoverageParser.sh \
 	--dir scratch/ \
