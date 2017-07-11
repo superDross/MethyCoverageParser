@@ -2,6 +2,7 @@
 import pandas as pd
 import argparse
 import os
+from append_probe_info import add_probe
 
 
 def CpG_dataframe(cov_dir):
@@ -71,37 +72,37 @@ def determine_strand(x, amplicon):
                 return strand
 
 
-def filter_cpg(cpg, cpg_sites):
+def filter_cpg(cpg, probes):
     ''' Filter methylation percentage dataframe for
         cpg sites of interest.
     
     Args:
         cpg: CpG_methylation dataframe
-        cpg_sites: sites to filter for
+        probes: sites to filter for
     
     Notes:
-        cpg_sites should be in the following format, with a header:
+        probes should be in the following format, with a header:
             probe   chrom    start    strand
             GB18272 ch17     879373   -
     '''
-    chrom = [x.rstrip("\n").split("\t")[1] for x in open(cpg_sites)][1:]
-    pos = [x.rstrip("\n").split("\t")[2] for x in open(cpg_sites)][1:]
+    chrom = [x.rstrip("\n").split("\t")[1] for x in open(probes)][1:]
+    pos = [x.rstrip("\n").split("\t")[2] for x in open(probes)][1:]
     cpg = cpg.reset_index()
     filtered_cpg = cpg[(cpg['Chromosome'].isin(chrom)) & (cpg['Position'].astype(str).isin(pos))]
     return filtered_cpg.set_index(['Chromosome', 'Position', 'Strand'])
 
             
             
-def main(cov_dir, out, amplicon=None, cpg_sites=None):
+def main(cov_dir, out, amplicon=None, probes=None):
     ''' Filter methylation percentage dataframe for
         cpg sites of interest.
 
     Args:
         cpg: CpG methylation dataframe
-        cpg_sites: sites to filter for
+        probes: sites to filter for
 
     Notes:
-        cpg_sites should be in this format, with header:
+        probes should be in this format, with header:
         
             probe   chrom   pos   strand
             cg167   chr12   1728    +
@@ -112,8 +113,10 @@ def main(cov_dir, out, amplicon=None, cpg_sites=None):
     if amplicon:
         cpg = insert_strand(cpg, amplicon)
 
-    if cpg_sites:
-        cpg = filter_cpg(cpg, cpg_sites)
+    if probes:
+        cpg = filter_cpg(cpg, probes)
+        cpg = add_probe(cpg, probes, cpg_site=True) 
+        cpg = cpg.set_index(['Probe', 'Chromosome', 'Position', 'Strand'])
 
     cpg.to_csv(out, na_rep='NA', sep="\t")
     return cpg
@@ -124,7 +127,7 @@ def get_parser():
     parser.add_argument('-b', '--bedgraph_dir', help='dir containing bedgraph coverage files')
     parser.add_argument('-o', '--output', help='output file name')
     parser.add_argument('-a', '--amplicon', help='amplicon bed file containing primer positions and strand')
-    parser.add_argument('-p', '--positions', help='file containing positions of interest')
+    parser.add_argument('-p', '--probes', help='file containing positions of interest')
 
     return parser
 
@@ -132,7 +135,7 @@ def get_parser():
 def cli():
     parser = get_parser()
     args = vars(parser.parse_args())
-    main(args['bedgraph_dir'], args['output'], args['amplicon'], args['positions'])
+    main(args['bedgraph_dir'], args['output'], args['amplicon'], args['probes'])
     
     
 if __name__ == '__main__':

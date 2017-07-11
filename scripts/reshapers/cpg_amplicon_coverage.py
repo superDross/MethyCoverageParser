@@ -2,6 +2,7 @@
 import pandas as pd
 import argparse
 import os
+from append_probe_info import add_probe
 
 def CpG_cov(cov_dir, field):
     ''' Get the methylated/unmethylated coverage for all CpG sites
@@ -69,7 +70,8 @@ def amplicon_cpg_coverage(cov_df, amplicon):
     return df
 
 
-def main(cov_dir, amplicon, out):
+
+def main(cov_dir, amplicon, out, probe_file=None):
     # produce a dataframe detailing the coverage for all meth/unmeth CpG sites from bismark2bedGrpah coverage files
     meth_site_cov = CpG_cov(cov_dir, 'meth_cov')
     unmeth_site_cov = CpG_cov(cov_dir, 'unmeth_cov')
@@ -80,7 +82,14 @@ def main(cov_dir, amplicon, out):
 
     # concatenate both the methyalted and non methylated counterparts
     com_cov = pd.concat([meth_amplicon_cov, unmeth_amplicon_cov]).sort_index()
+
+    # add probe name to the amplicons
+    if probe_file:
+        com_cov = add_probe(com_cov, probe_file)
+        com_cov = com_cov.set_index(['Probe', 'Chromosome', 'Start', 'End', 'Strand', 'Methylation Status'])
+      
     com_cov.to_csv(out, sep="\t")
+
     return com_cov
 
 
@@ -89,6 +98,7 @@ def get_parser():
     parser.add_argument('-b', '--bedgraph_dir', help='dir containing bedgraph coverage files')
     parser.add_argument('-o', '--output', help='output file name')
     parser.add_argument('-a', '--amplicon', help='amplicon bed file containing primer positions and strand')
+    parser.add_argument('-p', '--probe', nargs='?', default=None, help='probe list to filter positions for')
 
     return parser
 
@@ -96,7 +106,7 @@ def get_parser():
 def cli():
     parser = get_parser()
     args = vars(parser.parse_args())
-    main(args['bedgraph_dir'], args['amplicon'], args['output'])
+    main(args['bedgraph_dir'], args['amplicon'], args['output'], args['probe'])
     
     
 if __name__ == '__main__':

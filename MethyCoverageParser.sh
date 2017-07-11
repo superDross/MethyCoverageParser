@@ -285,11 +285,6 @@ generate_SAMS() {
         bismark --non_directional --bowtie2 -1 $R1 -2 $R2 --sam -o $SAMS/ $REF 
     fi
 
-    # recently getting an error with bme if the sam files are not compressed when aligning in --non_directional fashion (perhaps sam file too big when aligning in this manner??)
-    #for sam_file in `find . -name "*sam"`; do 
-    #    bgzip -c $sam_file > ${sam_file}.gz 
-    #done
-
     # create a mapping efficiency summary file
     find $SAMS/ -name "*_report.txt" | xargs grep "Mapping efficiency" | sed 's/:/\t/g' | awk -F"/" '{print $NF}' > $RESULT/mapping_efficiency_summary.txt
 
@@ -367,9 +362,14 @@ Coverage() {
         mv ${bed}_coverage.txt $BEDS/coverage/
     done
     
-    # give the dir containing the coverage text files
-    python $SCRIPTS/reshapers/coverage_parser.py \
-        -d $BEDS/coverage/ -o $RESULT/pre_coverage.tsv
+    if [ -z $CPG ]; then 
+        # give the dir containing the coverage text files
+        python $SCRIPTS/reshapers/coverage_parser.py \
+            -d $BEDS/coverage/ -o $RESULT/pre_coverage.tsv
+    else
+        python $SCRIPTS/reshapers/coverage_parser.py \
+            -d $BEDS/coverage/ -p $CPG -o $RESULT/pre_coverage.tsv
+    fi
 
     # alter column names in header to sample names
     python $SCRIPTS/content_modifiers/change_header.py \
@@ -406,8 +406,13 @@ Coverage() {
 
 CpG_amplicon_cov() {
 
-    python $SCRIPTS/reshapers/cpg_amplicon_coverage.py -a $AMPLICON \
-        -b ${SCRATCH}/bedgraph/ -o $RESULT/pre_CpG_amplicon_coverage.tsv
+    if [ -z $CPG ]; then 
+        python $SCRIPTS/reshapers/cpg_amplicon_coverage.py -a $AMPLICON \
+            -b ${SCRATCH}/bedgraph/ -o $RESULT/pre_CpG_amplicon_coverage.tsv
+    else
+        python $SCRIPTS/reshapers/cpg_amplicon_coverage.py -a $AMPLICON \
+            -b ${SCRATCH}/bedgraph/ -p $CPG -o $RESULT/pre_CpG_amplicon_coverage.tsv
+    fi
 
     # alter the column names to the sample it refers to 
     python $SCRIPTS/content_modifiers/change_header.py \
@@ -450,12 +455,10 @@ CpG_meth_perc() {
             -b ${SCRATCH}/bedgraph/ -p $CPG -o $RESULT/pre_CpG_meth_percent.tsv
     fi
 
-
     # alter column names in header to sample names
     python $SCRIPTS/content_modifiers/change_header.py \
         -i $RESULT/pre_CpG_meth_percent.tsv -o $RESULT/CpG_meth_percent.tsv
     rm $RESULT/pre_CpG_meth_percent.tsv
-
 
 }
 

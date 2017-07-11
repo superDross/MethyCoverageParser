@@ -23,7 +23,7 @@ chr7        987654    987901   1300       1500       750
 **CpG_meth_percent.tsv** <br />
 Details CpG methylation percentages for all CpG sites within the sequenced amplicons. <br />
 ```
-Chromosome  Start    Strand    Sample1    Sample2    Sample3
+Chromosome  Position    Strand    Sample1    Sample2    Sample3
 chr4        657900   OB        67.2       75.1       38.7 
 chr4        657936   OB        21.1       45.6       87.9
 chr7        987721   OT        NA         76.8       9.8 
