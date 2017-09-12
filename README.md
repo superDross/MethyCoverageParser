@@ -122,7 +122,8 @@ GB987    chr9    98654    +
 ```--fluidigm``` Trim the CS1rc and CS2rc Fluidigm sequencing primers, oppossed to Illuminas, from your FASTQ files. <br />
 ```--no-sams``` Do not generate SAM files. <br/>
 ```--no-trim``` Do not trim FASTQ files. <br />
-```--no-bme``` Do not produce bismark methylation extraction and bedGraph coverage files.
+```--no-bme``` Do not produce bismark methylation extraction and bedGraph coverage files. <br />
+```--test``` This will only work on a GridEngine system and will take several hours to complete.
 
 
 
@@ -181,6 +182,14 @@ The script allowing this feature is an adaptation of [Basespace-Invaders](https:
 
 ## Versions
 Major changes between versions have been detailed below. Major Bug fixes and documentation updating occurs over every version.
+
+### V0.05
+- option ```--test``` adds basic non-comprehensive testing in a GridEngine clustered computing environment
+
+### V0.04
+- option ```--filter-by-tile``` to filter FastQ files based upon tile/positional quality prior to adapter trimming
+- ```--cpg``` now adds the probe name to all reshaper output files
+- MultiQC report is now generated after data processing
 
 ### V0.03
 - non-directional libraries can now be analysed

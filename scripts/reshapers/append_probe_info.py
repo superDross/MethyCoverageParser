@@ -61,7 +61,7 @@ def add_probe(df, probe_file, cpg_site=False):
         df['Start'] = df['Start'].convert_objects(convert_numeric=True)
         df['End'] = df['End'].convert_objects(convert_numeric=True)
         # add probe in correct place
-        df = df.merge(probe, left_on='Chromosome', right_on='Chrom').query('Start < Pos < End')
+        df = df.merge(probe, left_on='Chromosome', right_on='Chrom').query('Start <= Pos <= End')
 
     # cleanup merged df and return
     df.drop(['Chrom', 'Pos', 'strand'], axis=1, inplace=True)

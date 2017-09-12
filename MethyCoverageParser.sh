@@ -1,8 +1,7 @@
 #!/bin/bash
 # created by David Ross
-version="v0.04"
+version="v0.05"
 
-# TODO: add probe name to output when using --cpg
 # TODO: reduce repetitive code in reshaper scripts (check out design patterns)
 
 ### NOTES ###############################################
@@ -16,7 +15,7 @@ version="v0.04"
 ### HELP PAGE ###########################################
 if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
 	cat <<- EOF
-	usage:  [-h] [-f DIR] [-d DIR] [-r DIR] [-a FILE] [-c FILE] [-o DIR] [-s STRING]
+	usage:  [-h] [-f DIR] [-d DIR] [-r DIR] [-a FILE] [-b STRING ] [-c FILE] [-f FILE]
 
 	Calculate the total coverage, CpG coverage & CpG coverage per given CpG site from 
 	a given set of FASTQ files over a set of given amplicons
@@ -37,6 +36,10 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ] ; then
 	--no-sams            do not generate SAM files
 	--no-trim            do not trim FASTQ files
 	--no-bme             do not generate BME or bedgraph coverage files
+	other:
+	--help               print this help page 
+	--version            print version number
+	--test               test the application - requires path to genome as argument
 	EOF
 	exit 0
 fi
@@ -46,6 +49,19 @@ fi
 ### VERSION #############################################
 if [ "$1" = "-v" ] || [ "$1" = "--version" ] ; then
     echo "version $version"
+    exit 0
+fi
+#########################################################
+
+
+### TEST ################################################
+if [ "$1" = "-t" ] || [ "$1" = "--test" ] ; then
+    # store the path to the directory in which this script is within
+    HERE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    qsub -M ${USER}@staffmail.ed.ac.uk -m a -m b -m e \
+        $HERE/test/test1.sh $2 $HERE
+    qsub -M ${USER}@staffmail.ed.ac.uk -m a -m b -m e \
+        $HERE/test/test2.sh $2 $HERE
     exit 0
 fi
 #########################################################
@@ -89,7 +105,6 @@ elif [ -z $AMPLICON ]; then
     echo "--amplicon argument is required"
     exit 1 
 fi
-
 #########################################################
 
 
@@ -101,7 +116,6 @@ BEDS=$SCRATCH/BED_files/
 BME=$SCRATCH/BME/
 FASTQC=$SCRATCH/fastqc/
 RESULT=$SCRATCH/results/
-
 ##########################################################
 
 
@@ -138,6 +152,9 @@ download_FASTQ() {
     # basespace-sdk-python is written in python2
     python2 $SCRIPTS/basespace/samples2files.py \
       -K $KEY -S $SECRET -A $TOKEN -y $BASESPACE -o $FASTQ_DIR
+    
+    # update FASTQS var
+    FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.gz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | sort`
 }
 
 
@@ -279,10 +296,10 @@ generate_SAMS() {
     # align to BS-converted genome and convert bam to sam files. Bowtie2 for >50bp reads.
     if [ -z $DIRECTIONAL ]; then
         echo "NOTE: aligning in directional fashion"
-        bismark --bowtie2 -1 $R1 -2 $R2 --sam -o $SAMS/ $REF 
+        bismark --bowtie2 -1 $R1 -2 $R2 --sam --temp_dir $SCRATCH -o $SAMS/ $REF 
     else 
         echo "NOTE: aligning in non-directional fashion"
-        bismark --non_directional --bowtie2 -1 $R1 -2 $R2 --sam -o $SAMS/ $REF 
+        bismark --non_directional --bowtie2 -1 $R1 -2 $R2 --sam --temp_dir $SCRATCH -o $SAMS/ $REF 
     fi
 
     # create a mapping efficiency summary file
