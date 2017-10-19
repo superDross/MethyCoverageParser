@@ -157,6 +157,10 @@ The optional ```--basespace``` flag allows one to download FASTQ files related t
 ```
 git clone https://github.com/basespace/basespace-python-sdk
 export PYTHONPATH=$PYTHONPATH:/path/to/basespace-python-sdk/src
+cd basespace/basespace-python-sdk/src
+python2 setup.py install --prefix=~/.local/
+# if an error occurs while trying to install via setup.py then simply install any package using pip2 then retry the above command
+# e.g. pip2 install --user multiqc
 ```
 The proper credentials have to be generated to facilitate communication with BaseSpace:
 
