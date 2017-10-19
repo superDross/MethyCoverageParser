@@ -173,6 +173,7 @@ download_FASTQ() {
 
 get_FASTQ_num() {
 
+    FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.gz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | sort`
     FASTQS_NUM=`echo $FASTQS | wc -w`
 
     if [ $((FASTQS_NUM%2)) -eq 0 ]; then
