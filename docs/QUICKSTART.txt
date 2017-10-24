@@ -1,0 +1,57 @@
+# STARTER GUIDE 
+A quick guide to help getting started with MethyCoverageParser on Eddie3
+
+check the below link for more info
+https://github.com/superDross/MethyCoverageParser
+
+1 - Copy .basespacepy.cfg and template.sh to your home directory on the cluster (/home/user) 
+	scp .basespacepy.cfg template.sh user@eddie3.ecdf.ed.ac.uk
+
+2 - Copy over the amplicon bed file (amplicons of interest) and cpg file (CpGs of interest) to the cluster. Ensure they are tab-delimited CSV files.
+	scp <amplicon-file> <cpg-file> user@eddie3.ecdf.ed.ac.uk
+
+3 - Log in to the cluster
+	ssh user@eddie3.ecdf.ed.ac.uk
+
+4 - open your bashrc file into a text editor named nano
+	nano ~/.bashrc
+
+5 - add the following line to the opened bashrc file, afterwards exit with ctrl-x
+	. /etc/profile.d/modules.sh
+	module unload python
+	module load python/3.4.3
+	PYTHONPATH=$PYTHONPATH:/home/user/bin/basespace-python-sdk/src/
+	
+6 - Install required packages
+	pip2 install --user cutadapt
+	pip3 install --user multiqc
+	pip3 install --user cutadapt
+	mkdir ~/bin
+	git clone https://github.com/basespace/basespace-python-sdk.git
+	cd ~/bin/basespace/basespace-python-sdk/src
+	python2 setup.py install --prefix=~/.local/
+
+7 - Copy the BS-converted genome fasta file (hg38) over to your scratch space
+	cp -r <genome-folder> ~/scratch/
+
+8 - Open the template script with an editor
+	nano template.sh
+
+9 - Edit the MethyCoverageParser commnad in the template script (Read the options segment of the MethyCoverageParser documentation first)
+	/path/to/MethyCoverageParser.sh \ 
+		--dir /home/user/scratch/
+		--basespace (name of basespace project to download FastQ files from)
+		--fastq /home/user/fastq/
+		--ref (path to the referece file)
+		--amplicon (path to the amplicon bed file)
+		--cpg (path to the cpg file)
+		--fluidigm
+
+10 - Exit the script using ctrl-x and save it
+
+11 - Submit the script as a job on the cluster. You will be emailed when the script has completed.
+	qsub template.sh
+
+12 - Upon completion, the results can be copied over to your local computer
+	exit
+	scp -r user@eddie3.ecdf.ed.ac.uk:~/scratch/results/ ./

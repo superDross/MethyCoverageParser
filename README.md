@@ -73,6 +73,7 @@ All the methylation percentage data from each CpG site within our amplicons are 
  
 
 ## Installation
+A quick-start can be viewed in the docs/ directory.
 ```bash
 git clone https://github.com/superDross/MethyCoverageParser/
 cd MethyCoverageParser/
