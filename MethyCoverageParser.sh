@@ -110,12 +110,14 @@ fi
 
 ### GLOBAL VARIABLES #####################################
 SCRIPTS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/scripts/ # the absolute path of the dir in which this script is within
-FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.gz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | sort`
 SAMS=$SCRATCH/alignment/sams/
 BEDS=$SCRATCH/BED_files/
 BME=$SCRATCH/BME/
 FASTQC=$SCRATCH/fastqc/
 RESULT=$SCRATCH/results/
+if [ -z $BASESPACE ]; then
+    FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.gz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | sort`
+fi
 ##########################################################
 
 
@@ -154,7 +156,7 @@ download_FASTQ() {
       -K $KEY -S $SECRET -A $TOKEN -y $BASESPACE -o $FASTQ_DIR
     
     # update FASTQS var
-    FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.gz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | sort`
+    export FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.gz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | sort`
 }
 
 
@@ -173,10 +175,9 @@ download_FASTQ() {
 
 get_FASTQ_num() {
 
-    FASTQS=`find $FASTQ_DIR/*/* -iregex '.*\.\(fastq.gz\|fq.gz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | sort`
     FASTQS_NUM=`echo $FASTQS | wc -w`
 
-    if [ $((FASTQS_NUM%2)) -eq 0 ]; then
+    if [ $((FASTQS_NUM%2)) -eq 0 ] && [ $FASTQS_NUM -ne 0 ]; then
         # even
         echo "SUCCESS: Acceptable number of fastq files found ($FASTQS_NUM)." \
              "Fastq files will be paired and parsed into filterbytile and/or trim-galore as follows:"
@@ -223,7 +224,7 @@ filter_by_tile() {
     done
         
     # trim these FASTQ files instead of the raw fastq files
-    FASTQS=`find $SCRATCH/fastq_filtered/* -iregex '.*\.\(fastq.gz\|fq.gz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | sort`
+    export FASTQS=`find $SCRATCH/fastq_filtered/* -iregex '.*\.\(fastq.gz\|fq.gz\|fq\|fastq\|sanfastq.gz\|sanfastq\)$' | sort`
 
 }
 
@@ -484,6 +485,7 @@ CpG_meth_perc() {
 ##########################################################
 
 
+
 ### EXECUTION ############################################
 
 main() {
@@ -508,7 +510,7 @@ main() {
     else
         echo "SKIPPING: bisulfite conversion of the genome" 
     fi
-    
+
     # calculate number FASTQS, ensure there aren't an odd number and return list of FASTQS to be trimmed
     get_FASTQ_num
 
@@ -525,14 +527,14 @@ main() {
     else 
         echo "SKIPPING: trimming of FASTQ files"
     fi
-    
+
     # generate bismark SAM files provided --no-sams flag has not been given
     if [ -z $SAM_GENERATION ]; then
-    	generate_SAMS 
+        generate_SAMS 
     else
         echo "SKIPPING: generation of SAM files"
     fi
-    
+
     # Combine QC data for all samples fastqc, trimmed fastq and sam files
     multiqc --force --ignore *_val_2_* $SCRATCH/fastq_trimmed/ $SCRATCH/fastqc/ $SCRATCH/alignment/sams/ \
             --outdir $SCRATCH/results/
@@ -546,10 +548,10 @@ main() {
 
     # get coverage for all samples/FASTQs
     Coverage
-    
+
     # get total meth/unmeth coverage for all CpG sites in each amplicon
     CpG_amplicon_cov
-    
+
     # get CpG methylation percantages for ech CpG site
     CpG_meth_perc
 }
