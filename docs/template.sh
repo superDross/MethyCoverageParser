@@ -48,14 +48,12 @@ module load igmm/libs/ncurses/6.0
 # environment variables; essesntially shorthands for directory paths
 DATASTORE=/exports/igmm/datastore/aitman-lab/user/	
 USER=/exports/eddie/scratch/user/
-HOME=/home/user/
 
 # MethyCoverageParser command
 $HOME/MethyCoverageParser/MethyCoverageParser.sh \
 	--fastq $USER/fastq/ \
 	--dir $USER \
 	--ref /exports/eddie/scratch/user/hg38/ \
-	--amplicon $USER/FluidigmAmplicons/Fiona2Amplicon.txt \
+	--amplicon $USER/FluidigmAmplicons/Positions2Amplicon.txt \
     --non-directional \
-    --no-trim \
     --fluidigm 
