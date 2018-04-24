@@ -3,7 +3,7 @@ Produces coverage and methylation percentage data from FASTQ files derived from 
 
 ## Description
 ### Summary
-A command line tool which uses [Bismark](https://www.bioinformatics.babraham.ac.uk/projects/bismark/) and a selection of parsing scripts to manipulate FASTQ files derived from bisulfite-converted targeted-sequencing to produce four files: <br />
+A command line tool which uses [Bismark](https://github.com/FelixKrueger/Bismark/tree/master/Docs) and a selection of parsing scripts to manipulate FASTQ files derived from bisulfite-converted targeted-sequencing to produce four files: <br />
 
 **mapping_efficiency_summary.txt** <br />
 Contains the number of reads with a unique best alignment over the total number of reads for every generated SAM file <br />
